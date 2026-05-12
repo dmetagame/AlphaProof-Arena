@@ -15,5 +15,6 @@ typechain-types/
 
 *.log
 *.tmp
+*.tsbuildinfo
 
 deployment-artifacts/

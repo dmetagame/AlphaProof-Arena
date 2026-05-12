@@ -54,6 +54,27 @@ scripts/           Repository automation scripts
 7. Mantle Sepolia deployment and verification.
 8. Public web deployment and demo video.
 
+## Local Setup
+
+```bash
+npm install
+npm run build
+npm test
+npm run dev --workspace apps/web
+```
+
+The dashboard is served by the Next app in `apps/web`. The "Run Agent Scan" action calls `/api/agent-scan`, which uses the agent service to produce a contract-ready `commitSignal` payload.
+
+## Deployment
+
+Use `contracts/.env.example` for Mantle Sepolia deployer configuration and `apps/web/.env.example` for frontend contract address configuration.
+
+```bash
+npm run deploy:mantle-sepolia --workspace contracts
+```
+
+The deploy script writes `deployment-artifacts/mantle-sepolia.json`. See [docs/deployment.md](docs/deployment.md) for the deployment runbook.
+
 ## Deployment Award Checklist
 
 - [ ] Smart contract deployed on Mantle Mainnet or Testnet.
@@ -63,4 +84,3 @@ scripts/           Repository automation scripts
 - [ ] Deployment address in DoraHacks submission.
 - [ ] Demo video at least 2 minutes.
 - [ ] README with setup, architecture, and deployed contract addresses.
-

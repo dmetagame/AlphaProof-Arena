@@ -77,6 +77,8 @@ const initialContract: ContractPayload = {
   ]
 };
 
+const signalRegistryAddress = process.env.NEXT_PUBLIC_SIGNAL_REGISTRY_ADDRESS;
+
 const agents: Agent[] = [
   {
     rank: 1,
@@ -227,7 +229,7 @@ export default function Dashboard() {
         <div className="network">
           <span className="status-dot" />
           <strong>Mantle Sepolia</strong>
-          <span>SignalRegistry ready</span>
+          <span>{signalRegistryAddress ? `SignalRegistry ${shortAddress(signalRegistryAddress)}` : "SignalRegistry pending deploy"}</span>
         </div>
       </header>
 
@@ -427,6 +429,10 @@ function toTitleDirection(direction: AgentScanResponse["signal"]["direction"]): 
 
 function shortenHash(hash: string) {
   return `${hash.slice(0, 6)}...${hash.slice(-4)}`;
+}
+
+function shortAddress(address: string) {
+  return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 
 function formatTimeLeft(expiresAt: string) {

@@ -1,3 +1,5 @@
+import { mkdirSync, writeFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
 import { ethers } from "hardhat";
 
 async function main() {
@@ -21,13 +23,38 @@ async function main() {
 
   await scoreRegistry.setResolver(await signalRegistry.getAddress());
 
-  console.log("AgentRegistry:", await agentRegistry.getAddress());
-  console.log("ScoreRegistry:", await scoreRegistry.getAddress());
-  console.log("SignalRegistry:", await signalRegistry.getAddress());
+  const deployment = {
+    network: "mantleSepolia",
+    chainId: 5003,
+    deployedAt: new Date().toISOString(),
+    deployer: deployer.address,
+    contracts: {
+      AgentRegistry: {
+        address: await agentRegistry.getAddress(),
+        transactionHash: agentRegistry.deploymentTransaction()?.hash
+      },
+      ScoreRegistry: {
+        address: await scoreRegistry.getAddress(),
+        transactionHash: scoreRegistry.deploymentTransaction()?.hash
+      },
+      SignalRegistry: {
+        address: await signalRegistry.getAddress(),
+        transactionHash: signalRegistry.deploymentTransaction()?.hash
+      }
+    }
+  };
+
+  const outputPath = resolve(process.cwd(), "../deployment-artifacts/mantle-sepolia.json");
+  mkdirSync(dirname(outputPath), { recursive: true });
+  writeFileSync(outputPath, `${JSON.stringify(deployment, null, 2)}\n`);
+
+  console.log("AgentRegistry:", deployment.contracts.AgentRegistry.address);
+  console.log("ScoreRegistry:", deployment.contracts.ScoreRegistry.address);
+  console.log("SignalRegistry:", deployment.contracts.SignalRegistry.address);
+  console.log("Deployment artifact:", outputPath);
 }
 
 main().catch((error) => {
   console.error(error);
   process.exitCode = 1;
 });
-

@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "tsx src/index.ts",
     "generate": "node dist/index.js generate",
+    "resolve-demo": "node dist/index.js resolve-demo",
     "build": "tsc -p tsconfig.json",
     "test": "node --import tsx --test \"src/**/*.test.ts\""
   },

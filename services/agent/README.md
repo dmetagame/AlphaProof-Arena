@@ -17,6 +17,7 @@ This lets the demo show the full product loop before live data indexing is added
 npm run build --workspace services/agent
 npm test --workspace services/agent
 npm run generate --workspace services/agent
+npm run resolve-demo --workspace services/agent
 ```
 
 ## Next Integrations

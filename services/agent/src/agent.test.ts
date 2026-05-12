@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { generateWhaleFlowSignal } from "./agents/whaleFlowAgent.js";
 import { toCommitSignalArgs, toContractSignalPayload } from "./contractPayload.js";
+import { buildDemoOutcome } from "./data/demoOutcomeData.js";
 import { loadDemoMantleObservations } from "./data/demoMantleData.js";
+import { resolveSignalOutcome, toContractResolutionPayload, toResolveSignalArgs } from "./resolver.js";
 
 test("generates a valid whale flow signal from demo Mantle observations", () => {
   const [observation] = loadDemoMantleObservations();
@@ -33,3 +35,19 @@ test("converts a signal into SignalRegistry commit args", () => {
   assert.equal(args[2], signal.targetId);
 });
 
+test("resolves a bullish signal into contract-ready score args", () => {
+  const [observation] = loadDemoMantleObservations();
+  const signal = generateWhaleFlowSignal(observation, new Date("2026-05-12T10:00:00.000Z"));
+  const outcome = buildDemoOutcome(signal);
+  const resolution = resolveSignalOutcome(signal, outcome);
+  const payload = toContractResolutionPayload(99n, resolution);
+  const args = toResolveSignalArgs(payload);
+
+  assert.equal(resolution.correct, true);
+  assert.ok(resolution.pnlBps > 0);
+  assert.ok(resolution.reputationDelta > 0);
+  assert.equal(args[0], 99n);
+  assert.equal(args[1], true);
+  assert.equal(args[2], BigInt(resolution.pnlBps));
+  assert.equal(args[3], BigInt(resolution.reputationDelta));
+});

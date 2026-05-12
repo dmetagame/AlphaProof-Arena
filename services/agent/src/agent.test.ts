@@ -4,6 +4,7 @@ import { generateWhaleFlowSignal } from "./agents/whaleFlowAgent.js";
 import { toCommitSignalArgs, toContractSignalPayload } from "./contractPayload.js";
 import { buildDemoOutcome } from "./data/demoOutcomeData.js";
 import { loadDemoMantleObservations } from "./data/demoMantleData.js";
+import { buildDemoCommitBundle, stringifyBigInts } from "./demoBundle.js";
 import { resolveSignalOutcome, toContractResolutionPayload, toResolveSignalArgs } from "./resolver.js";
 
 test("generates a valid whale flow signal from demo Mantle observations", () => {
@@ -50,4 +51,21 @@ test("resolves a bullish signal into contract-ready score args", () => {
   assert.equal(args[1], true);
   assert.equal(args[2], BigInt(resolution.pnlBps));
   assert.equal(args[3], BigInt(resolution.reputationDelta));
+});
+
+test("builds a JSON-safe demo commit bundle for the web API", () => {
+  const bundle = buildDemoCommitBundle(new Date("2026-05-12T10:00:00.000Z"));
+  const json = stringifyBigInts(bundle) as {
+    contract: {
+      functionName: string;
+      payload: { agentId: string; expiresAt: string };
+      args: unknown[];
+    };
+  };
+
+  assert.equal(bundle.signal.targetSymbol, "mETH");
+  assert.equal(bundle.contract.functionName, "commitSignal");
+  assert.equal(json.contract.payload.agentId, "1");
+  assert.equal(json.contract.payload.expiresAt, "1778583600");
+  assert.equal(json.contract.args.length, 7);
 });

@@ -20,6 +20,61 @@ type Signal = {
   status: "Pending" | "Resolved";
   result: string;
   proof: string;
+  thesis?: string;
+  expiresAt?: string;
+  sourceDataHash?: string;
+  explanationHash?: string;
+  contract?: ContractPayload;
+};
+
+type ContractPayload = {
+  functionName: string;
+  payload: {
+    agentId: string;
+    kind: number;
+    targetId: string;
+    confidenceBps: number;
+    expiresAt: string;
+    sourceDataHash: string;
+    explanationHash: string;
+  };
+  args: Array<string | number>;
+};
+
+type AgentScanResponse = {
+  signal: {
+    agentName: string;
+    targetSymbol: string;
+    confidenceBps: number;
+    expiresAt: string;
+    direction: "bullish" | "bearish" | "neutral";
+    thesis: string;
+    sourceDataHash: string;
+    explanationHash: string;
+  };
+  contract: ContractPayload;
+};
+
+const initialContract: ContractPayload = {
+  functionName: "commitSignal",
+  payload: {
+    agentId: "1",
+    kind: 0,
+    targetId: "0x290b03c0935793929f7e60398303d2001b8440ad04f4b8083f57545f0208ca04",
+    confidenceBps: 8569,
+    expiresAt: "1778583600",
+    sourceDataHash: "0x92770893440275c232594b1df22df881c7d1a837f8f0ecb01006191757f4af3c",
+    explanationHash: "0xb477aeb6977d5940e41e50b794aeb6aafd017144087a49755d956ea7e92dabb3"
+  },
+  args: [
+    "1",
+    0,
+    "0x290b03c0935793929f7e60398303d2001b8440ad04f4b8083f57545f0208ca04",
+    8569,
+    "1778583600",
+    "0x92770893440275c232594b1df22df881c7d1a837f8f0ecb01006191757f4af3c",
+    "0xb477aeb6977d5940e41e50b794aeb6aafd017144087a49755d956ea7e92dabb3"
+  ]
 };
 
 const agents: Agent[] = [
@@ -58,7 +113,12 @@ const initialSignals: Signal[] = [
     confidence: 86,
     status: "Resolved",
     result: "+2.37%",
-    proof: "0x91a4...d81c"
+    proof: "0xb477...abb3",
+    thesis: "Whale Flow Agent detected $1,842,500 net inflow into mETH across 38 wallets, including 7 whale wallets.",
+    expiresAt: "2026-05-12T11:00:00.000Z",
+    sourceDataHash: initialContract.payload.sourceDataHash,
+    explanationHash: initialContract.payload.explanationHash,
+    contract: initialContract
   },
   {
     id: "AP-1043",
@@ -91,6 +151,8 @@ const events = [
 
 export default function Dashboard() {
   const [signals, setSignals] = useState(initialSignals);
+  const [scanStatus, setScanStatus] = useState<"idle" | "running" | "ready" | "error">("idle");
+  const [notice, setNotice] = useState("Whale Flow Agent is ready to produce a Mantle commit payload.");
 
   const resolved = signals.filter((signal) => signal.status === "Resolved").length;
   const pending = signals.length - resolved;
@@ -100,21 +162,56 @@ export default function Dashboard() {
     [signals]
   );
 
-  function addSignal() {
-    const nextId = `AP-${1042 + signals.length}`;
-    setSignals((current) => [
-      {
-        id: nextId,
-        agent: "Whale Flow Agent",
-        target: "mETH",
-        direction: "Bullish",
-        confidence: 85,
-        status: "Pending",
-        result: "60m left",
-        proof: "0x7dd1...91ab"
-      },
-      ...current
-    ]);
+  async function addSignal() {
+    setScanStatus("running");
+    setNotice("Whale Flow Agent is reading Mantle demo flow data.");
+
+    try {
+      const response = await fetch("/api/agent-scan", { cache: "no-store" });
+      if (!response.ok) throw new Error("agent scan failed");
+
+      const scan = await response.json() as AgentScanResponse;
+      setSignals((current) => [
+        {
+          id: `AP-${1042 + current.length}`,
+          agent: scan.signal.agentName,
+          target: scan.signal.targetSymbol,
+          direction: toTitleDirection(scan.signal.direction),
+          confidence: Math.round(scan.signal.confidenceBps / 100),
+          status: "Pending",
+          result: formatTimeLeft(scan.signal.expiresAt),
+          proof: shortenHash(scan.signal.explanationHash),
+          thesis: scan.signal.thesis,
+          expiresAt: scan.signal.expiresAt,
+          sourceDataHash: scan.signal.sourceDataHash,
+          explanationHash: scan.signal.explanationHash,
+          contract: scan.contract
+        },
+        ...current
+      ]);
+      setScanStatus("ready");
+      setNotice("New commitSignal payload prepared for Mantle Sepolia.");
+    } catch {
+      setScanStatus("error");
+      setNotice("Agent scan failed locally. Keep the Next API route running and retry.");
+    }
+  }
+
+  async function copyAlphaCard() {
+    const lines = [
+      "AlphaProof Arena",
+      `${latest.agent} called ${latest.target} ${latest.direction.toLowerCase()} with ${latest.confidence}% confidence.`,
+      `Status: ${latest.status}`,
+      `Proof: ${latest.proof}`,
+      latest.thesis ? `Thesis: ${latest.thesis}` : ""
+    ].filter(Boolean);
+
+    try {
+      await navigator.clipboard.writeText(lines.join("\n"));
+      setNotice("Alpha Card copied.");
+    } catch {
+      setNotice(lines.join(" "));
+    }
   }
 
   return (
@@ -159,9 +256,12 @@ export default function Dashboard() {
                 Every signal is timestamped on Mantle before expiry, then scored after the outcome window using the resolver engine.
               </p>
               <div className="action-row">
-                <button className="primary-btn" onClick={addSignal}>Run Agent Scan</button>
-                <button className="secondary-btn">Copy Alpha Card</button>
+                <button className="primary-btn" onClick={addSignal} disabled={scanStatus === "running"}>
+                  {scanStatus === "running" ? "Scanning..." : "Run Agent Scan"}
+                </button>
+                <button className="secondary-btn" onClick={copyAlphaCard}>Copy Alpha Card</button>
               </div>
+              <p className={`notice ${scanStatus}`}>{notice}</p>
             </section>
 
             <section className="metric-grid" aria-label="Arena metrics">
@@ -268,6 +368,32 @@ export default function Dashboard() {
                 </dl>
               </section>
 
+              <section className="panel payload-panel">
+                <div className="panel-head">
+                  <h3>Commit Payload</h3>
+                  <span className="pill blue">{latest.contract?.functionName ?? "commitSignal"}</span>
+                </div>
+                <div className="payload-grid">
+                  <div>
+                    <span>Agent</span>
+                    <strong>#{latest.contract?.payload.agentId ?? "1"}</strong>
+                  </div>
+                  <div>
+                    <span>Confidence</span>
+                    <strong>{latest.contract?.payload.confidenceBps ?? latest.confidence * 100} bps</strong>
+                  </div>
+                  <div>
+                    <span>Source Hash</span>
+                    <strong>{shortenHash(latest.sourceDataHash ?? initialContract.payload.sourceDataHash)}</strong>
+                  </div>
+                  <div>
+                    <span>Explanation</span>
+                    <strong>{shortenHash(latest.explanationHash ?? initialContract.payload.explanationHash)}</strong>
+                  </div>
+                </div>
+                <code>{JSON.stringify(latest.contract?.args ?? initialContract.args, null, 2)}</code>
+              </section>
+
               <section className="panel">
                 <div className="panel-head">
                   <h3>Proof Timeline</h3>
@@ -293,3 +419,17 @@ export default function Dashboard() {
   );
 }
 
+function toTitleDirection(direction: AgentScanResponse["signal"]["direction"]): Signal["direction"] {
+  if (direction === "bullish") return "Bullish";
+  if (direction === "bearish") return "Bearish";
+  return "Neutral";
+}
+
+function shortenHash(hash: string) {
+  return `${hash.slice(0, 6)}...${hash.slice(-4)}`;
+}
+
+function formatTimeLeft(expiresAt: string) {
+  const minutes = Math.max(1, Math.round((Date.parse(expiresAt) - Date.now()) / 60_000));
+  return `${minutes}m left`;
+}

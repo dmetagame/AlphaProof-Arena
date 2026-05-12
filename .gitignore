@@ -6,6 +6,8 @@ build/
 coverage/
 cache/
 out/
+artifacts/
+typechain-types/
 
 .env
 .env.local
@@ -15,4 +17,3 @@ out/
 *.tmp
 
 deployment-artifacts/
-

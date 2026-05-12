@@ -22,8 +22,13 @@ const config: HardhatUserConfig = {
       chainId: 5003,
       accounts
     }
+  },
+  paths: {
+    sources: "./src",
+    tests: "./test",
+    cache: "./cache",
+    artifacts: "./artifacts"
   }
 };
 
 export default config;
-

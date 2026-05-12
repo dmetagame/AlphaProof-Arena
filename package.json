@@ -1,0 +1,20 @@
+{
+  "name": "alphaproof-arena",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Mantle-native AI agent arena for verifiable alpha signals.",
+  "workspaces": [
+    "apps/web",
+    "contracts",
+    "services/agent"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
+

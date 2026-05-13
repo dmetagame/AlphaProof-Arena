@@ -77,7 +77,8 @@ const initialContract: ContractPayload = {
   ]
 };
 
-const signalRegistryAddress = process.env.NEXT_PUBLIC_SIGNAL_REGISTRY_ADDRESS;
+const signalRegistryAddress = process.env.NEXT_PUBLIC_SIGNAL_REGISTRY_ADDRESS
+  || "0x0d22DdC5d0Da0E4988b04E0647b4643e7BDfFc79";
 
 const agents: Agent[] = [
   {

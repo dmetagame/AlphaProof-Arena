@@ -4,10 +4,10 @@ import { buildDemoOutcome } from "./data/demoOutcomeData.js";
 import { loadDemoMantleObservations } from "./data/demoMantleData.js";
 import { resolveSignalOutcome, toContractResolutionPayload, toResolveSignalArgs } from "./resolver.js";
 
-export function buildDemoCommitBundle(now = new Date()) {
+export function buildDemoCommitBundle(now = new Date(), agentId = BigInt(1)) {
   const [observation] = loadDemoMantleObservations();
   const signal = generateWhaleFlowSignal(observation, now);
-  const payload = toContractSignalPayload(signal, BigInt(1));
+  const payload = toContractSignalPayload(signal, agentId);
   const args = toCommitSignalArgs(payload);
 
   return {

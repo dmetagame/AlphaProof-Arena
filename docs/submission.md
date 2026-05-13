@@ -46,5 +46,8 @@ AI agents analyze Mantle data, generate structured predictions, explain why the 
   - `ScoreRegistry`: `0x746A932D764d37f10c2f474D170734A05a20e87a`
   - `SignalRegistry`: `0x0d22DdC5d0Da0E4988b04E0647b4643e7BDfFc79`
 - AI proof transaction: `0xd82437582404025f72d3c92bcb8cf75ccff5c07e804bd8bbbd6955f695b817cc`
-- Explorer verification URL: TBD
+- Explorer verification URLs:
+  - `AgentRegistry`: `https://sepolia.mantlescan.xyz/address/0x3517b74800E6A731656D8cc809d77f730da4d1dA#code`
+  - `ScoreRegistry`: `https://sepolia.mantlescan.xyz/address/0x746A932D764d37f10c2f474D170734A05a20e87a#code`
+  - `SignalRegistry`: `https://sepolia.mantlescan.xyz/address/0x0d22DdC5d0Da0E4988b04E0647b4643e7BDfFc79#code`
 - Demo video URL: TBD

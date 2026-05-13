@@ -20,6 +20,12 @@ Current deployment:
 | `ScoreRegistry` | `0x746A932D764d37f10c2f474D170734A05a20e87a` | `0x12419c4f51bbafb3135e2578efb06cd61a8d130a15dcad14796ec0618896e1a3` |
 | `SignalRegistry` | `0x0d22DdC5d0Da0E4988b04E0647b4643e7BDfFc79` | `0xba803fb0f9c807c69879ec9d0cec9a870c78f0c4e03db6102b279cbbab6f6b22` |
 
+Verified source:
+
+- `AgentRegistry`: `https://sepolia.mantlescan.xyz/address/0x3517b74800E6A731656D8cc809d77f730da4d1dA#code`
+- `ScoreRegistry`: `https://sepolia.mantlescan.xyz/address/0x746A932D764d37f10c2f474D170734A05a20e87a#code`
+- `SignalRegistry`: `https://sepolia.mantlescan.xyz/address/0x0d22DdC5d0Da0E4988b04E0647b4643e7BDfFc79#code`
+
 ## Seeded Demo Signal
 
 Run this after deployment to register the demo agent and write an AI-generated `commitSignal` proof:

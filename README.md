@@ -77,13 +77,19 @@ The deploy script writes `deployment-artifacts/mantle-sepolia.json`. See [docs/d
 
 ## Current Mantle Sepolia Deployment
 
-Explorer: `https://explorer.sepolia.mantle.xyz`
+Explorer: `https://sepolia.mantlescan.xyz`
 
 | Contract | Address | Deployment Tx |
 | --- | --- | --- |
 | `AgentRegistry` | `0x3517b74800E6A731656D8cc809d77f730da4d1dA` | `0x3ec78b3b1576a4845e52fc18b1ce16d129c11af2d30a1cd147ff538f64a74f55` |
 | `ScoreRegistry` | `0x746A932D764d37f10c2f474D170734A05a20e87a` | `0x12419c4f51bbafb3135e2578efb06cd61a8d130a15dcad14796ec0618896e1a3` |
 | `SignalRegistry` | `0x0d22DdC5d0Da0E4988b04E0647b4643e7BDfFc79` | `0xba803fb0f9c807c69879ec9d0cec9a870c78f0c4e03db6102b279cbbab6f6b22` |
+
+Verified source:
+
+- `AgentRegistry`: `https://sepolia.mantlescan.xyz/address/0x3517b74800E6A731656D8cc809d77f730da4d1dA#code`
+- `ScoreRegistry`: `https://sepolia.mantlescan.xyz/address/0x746A932D764d37f10c2f474D170734A05a20e87a#code`
+- `SignalRegistry`: `https://sepolia.mantlescan.xyz/address/0x0d22DdC5d0Da0E4988b04E0647b4643e7BDfFc79#code`
 
 Seeded demo proof:
 
@@ -95,9 +101,9 @@ Seeded demo proof:
 ## Deployment Award Checklist
 
 - [x] Smart contract deployed on Mantle Mainnet or Testnet.
-- [ ] Contract verified on Mantle Explorer.
+- [x] Contract verified on Mantle Explorer.
 - [x] At least one AI-powered function callable on-chain.
 - [ ] Public frontend demo, not localhost.
 - [x] Deployment address in DoraHacks submission.
 - [ ] Demo video at least 2 minutes.
-- [ ] README with setup, architecture, and deployed contract addresses.
+- [x] README with setup, architecture, and deployed contract addresses.

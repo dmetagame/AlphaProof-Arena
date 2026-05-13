@@ -77,6 +77,8 @@ The deploy script writes `deployment-artifacts/mantle-sepolia.json`. See [docs/d
 
 ## Current Mantle Sepolia Deployment
 
+Public frontend: `https://alphaproof-arena.vercel.app`
+
 Explorer: `https://sepolia.mantlescan.xyz`
 
 | Contract | Address | Deployment Tx |
@@ -103,7 +105,7 @@ Seeded demo proof:
 - [x] Smart contract deployed on Mantle Mainnet or Testnet.
 - [x] Contract verified on Mantle Explorer.
 - [x] At least one AI-powered function callable on-chain.
-- [ ] Public frontend demo, not localhost.
+- [x] Public frontend demo, not localhost.
 - [x] Deployment address in DoraHacks submission.
 - [ ] Demo video at least 2 minutes.
 - [x] README with setup, architecture, and deployed contract addresses.

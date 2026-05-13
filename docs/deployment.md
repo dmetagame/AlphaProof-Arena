@@ -43,6 +43,8 @@ Current seeded proof:
 
 ## Frontend Environment
 
+Current public frontend: `https://alphaproof-arena.vercel.app`
+
 Copy `apps/web/.env.example` into your hosting environment and fill these values from the deployment artifact:
 
 ```bash

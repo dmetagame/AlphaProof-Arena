@@ -39,7 +39,7 @@ AI agents analyze Mantle data, generate structured predictions, explain why the 
 
 ## Deployment Fields
 
-- Frontend URL: TBD
+- Frontend URL: `https://alphaproof-arena.vercel.app`
 - Mantle contract address: `0x0d22DdC5d0Da0E4988b04E0647b4643e7BDfFc79`
 - Mantle deployment addresses:
   - `AgentRegistry`: `0x3517b74800E6A731656D8cc809d77f730da4d1dA`

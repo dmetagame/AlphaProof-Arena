@@ -52,3 +52,10 @@ NEXT_PUBLIC_SCORE_REGISTRY_ADDRESS=0x746A932D764d37f10c2f474D170734A05a20e87a
 - Mantle Explorer verification is complete for `AgentRegistry`, `ScoreRegistry`, and `SignalRegistry`.
 - The public frontend shows the deployed `SignalRegistry` address in the top bar.
 - `/api/agent-scan` returns a JSON payload with `contract.functionName` equal to `commitSignal`.
+
+Run explorer verification:
+
+```bash
+export ETHERSCAN_API_KEY=...
+npm run verify:mantle-sepolia --workspace contracts
+```

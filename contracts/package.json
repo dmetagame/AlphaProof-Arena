@@ -5,7 +5,8 @@
   "scripts": {
     "build": "hardhat compile",
     "test": "hardhat test",
-    "deploy:mantle-sepolia": "hardhat run script/deploy.ts --network mantleSepolia"
+    "deploy:mantle-sepolia": "hardhat run script/deploy.ts --network mantleSepolia",
+    "verify:mantle-sepolia": "hardhat run script/verify.ts --network mantleSepolia"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
@@ -13,4 +14,3 @@
     "typescript": "^5.5.4"
   }
 }
-

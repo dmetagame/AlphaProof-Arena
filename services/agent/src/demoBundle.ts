@@ -2,10 +2,28 @@ import { generateWhaleFlowSignal } from "./agents/whaleFlowAgent.js";
 import { toCommitSignalArgs, toContractSignalPayload } from "./contractPayload.js";
 import { buildDemoOutcome } from "./data/demoOutcomeData.js";
 import { loadDemoMantleObservations } from "./data/demoMantleData.js";
+import { loadLiveMantleObservation, LiveMantleObservationOptions } from "./data/liveMantleRpcData.js";
 import { resolveSignalOutcome, toContractResolutionPayload, toResolveSignalArgs } from "./resolver.js";
 
 export function buildDemoCommitBundle(now = new Date(), agentId = BigInt(1)) {
   const [observation] = loadDemoMantleObservations();
+  return buildCommitBundleFromObservation(observation, now, agentId);
+}
+
+export async function buildLiveCommitBundle(
+  now = new Date(),
+  agentId = BigInt(1),
+  options: LiveMantleObservationOptions = {}
+) {
+  const observation = await loadLiveMantleObservation(options);
+  return buildCommitBundleFromObservation(observation, now, agentId);
+}
+
+function buildCommitBundleFromObservation(
+  observation: ReturnType<typeof loadDemoMantleObservations>[number],
+  now: Date,
+  agentId: bigint
+) {
   const signal = generateWhaleFlowSignal(observation, now);
   const payload = toContractSignalPayload(signal, agentId);
   const args = toCommitSignalArgs(payload);

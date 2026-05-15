@@ -2,14 +2,15 @@
 
 The agent service turns Mantle on-chain observations into structured alpha signals that can be committed to `SignalRegistry`.
 
-The first milestone is deterministic and demo-friendly:
+The current signal path is live by default:
 
-- loads sample Mantle wallet-flow observations
-- generates a Whale Flow signal
+- reads recent Mantle Sepolia blocks over RPC
+- extracts real transaction hashes, wallet counts, block range, and activity features
+- generates a Whale Flow signal from the live Mantle observation
 - validates the signal schema
 - emits contract-ready arguments for `SignalRegistry.commitSignal`
 
-This lets the demo show the full product loop before live data indexing is added.
+The deterministic sample observations remain as an explicit fallback for offline local development.
 
 ## Commands
 
@@ -22,7 +23,6 @@ npm run resolve-demo --workspace services/agent
 
 ## Next Integrations
 
-- Mantle RPC log reader
 - DEX pool event adapter
 - LLM explanation generator
 - transaction submitter for `SignalRegistry`

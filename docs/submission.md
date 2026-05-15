@@ -28,7 +28,7 @@ Most AI agents only produce claims. AlphaProof Arena creates a proof layer where
 
 ## Mantle Integration
 
-- Mantle is the source data network.
+- Mantle is the source data network: the agent scans recent Mantle Sepolia blocks over RPC and hashes the observed block range, wallet activity, and real source transaction hashes into each signal.
 - Mantle stores signal commitments.
 - Mantle stores resolution and score updates.
 - Mantle Explorer provides public proof links.

@@ -63,7 +63,7 @@ npm test
 npm run dev --workspace apps/web
 ```
 
-The dashboard is served by the Next app in `apps/web`. The "Run Agent Scan" action calls `/api/agent-scan`, which uses the agent service to produce a contract-ready `commitSignal` payload.
+The dashboard is served by the Next app in `apps/web`. The "Run Agent Scan" action calls `/api/agent-scan`, which reads recent Mantle Sepolia blocks through RPC, extracts live transaction hashes and activity features, and produces a contract-ready `commitSignal` payload. If the RPC is unavailable, the API returns an explicit `demo-fallback` payload instead of silently presenting fixture data as live data.
 
 ## Deployment
 

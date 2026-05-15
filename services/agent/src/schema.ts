@@ -13,6 +13,9 @@ export type SignalKindName = keyof typeof SignalKind;
 export const MantleObservationSchema = z.object({
   chainId: z.literal(5003),
   observedAt: z.string().datetime(),
+  dataSource: z.string().min(1).optional(),
+  fromBlock: z.number().int().nonnegative().optional(),
+  toBlock: z.number().int().nonnegative().optional(),
   targetSymbol: z.string().min(1),
   targetAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
   windowMinutes: z.number().int().positive(),
@@ -54,4 +57,3 @@ export const ContractSignalPayloadSchema = z.object({
 });
 
 export type ContractSignalPayload = z.infer<typeof ContractSignalPayloadSchema>;
-

@@ -60,6 +60,9 @@ NEXT_PUBLIC_CHAIN_ID=5003
 NEXT_PUBLIC_AGENT_REGISTRY_ADDRESS=0x3517b74800E6A731656D8cc809d77f730da4d1dA
 NEXT_PUBLIC_SIGNAL_REGISTRY_ADDRESS=0x0d22DdC5d0Da0E4988b04E0647b4643e7BDfFc79
 NEXT_PUBLIC_SCORE_REGISTRY_ADDRESS=0x746A932D764d37f10c2f474D170734A05a20e87a
+MANTLE_SEPOLIA_RPC_URL=https://rpc.sepolia.mantle.xyz
+MANTLE_OBSERVATION_BLOCKS=24
+MNT_USD_PRICE=1
 ```
 
 ## Verification Checklist
@@ -67,7 +70,7 @@ NEXT_PUBLIC_SCORE_REGISTRY_ADDRESS=0x746A932D764d37f10c2f474D170734A05a20e87a
 - Contract addresses are present in `deployment-artifacts/mantle-sepolia.json`.
 - Mantle Explorer verification is complete for `AgentRegistry`, `ScoreRegistry`, and `SignalRegistry`.
 - The public frontend shows the deployed `SignalRegistry` address in the top bar.
-- `/api/agent-scan` returns a JSON payload with `contract.functionName` equal to `commitSignal`.
+- `/api/agent-scan` returns a JSON payload with `dataSourceMode` equal to `live-mantle-rpc` and `contract.functionName` equal to `commitSignal`.
 - `/api/chain-state` returns the live `ScoreRegistry` score and seeded signal resolution state.
 
 Run explorer verification:

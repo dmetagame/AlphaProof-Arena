@@ -7,8 +7,13 @@ export function generateWhaleFlowSignal(observation: MantleObservation, now = ne
   const whaleConcentration = observation.uniqueWallets === 0
     ? 0
     : observation.whaleWallets / observation.uniqueWallets;
-  const flowIntensity = Math.min(Math.abs(observation.netFlowUsd) / 2_000_000, 1);
-  const transferIntensity = Math.min(observation.averageTransferUsd / 150_000, 1);
+  const isLiveMantleRpc = observation.dataSource === "mantle-sepolia-rpc-native-transfers";
+  const flowIntensity = isLiveMantleRpc
+    ? Math.min(observation.txCount / 30, 1)
+    : Math.min(Math.abs(observation.netFlowUsd) / 2_000_000, 1);
+  const transferIntensity = isLiveMantleRpc
+    ? Math.min(observation.uniqueWallets / 12, 1)
+    : Math.min(observation.averageTransferUsd / 150_000, 1);
 
   const rawConfidence = 4500
     + Math.round(flowIntensity * 2600)
@@ -16,11 +21,17 @@ export function generateWhaleFlowSignal(observation: MantleObservation, now = ne
     + Math.round(Math.min(whaleConcentration, 0.5) * 3000);
   const confidenceBps = Math.max(1, Math.min(rawConfidence, 9200));
 
-  const direction = observation.netFlowUsd > 250_000
-    ? "bullish"
-    : observation.netFlowUsd < -250_000
-      ? "bearish"
-      : "neutral";
+  const direction = isLiveMantleRpc
+    ? observation.txCount >= 20
+      ? "bullish"
+      : observation.txCount <= 5
+        ? "bearish"
+        : "neutral"
+    : observation.netFlowUsd > 250_000
+      ? "bullish"
+      : observation.netFlowUsd < -250_000
+        ? "bearish"
+        : "neutral";
 
   const expiresAt = new Date(now.getTime() + 60 * 60 * 1000);
   const sourceDataHash = hashJson(observation);
@@ -46,7 +57,10 @@ export function generateWhaleFlowSignal(observation: MantleObservation, now = ne
       whaleConcentration: Number(whaleConcentration.toFixed(4)),
       averageTransferUsd: observation.averageTransferUsd,
       txCount: observation.txCount,
-      windowMinutes: observation.windowMinutes
+      windowMinutes: observation.windowMinutes,
+      dataSource: observation.dataSource ?? "demo-fixture",
+      fromBlock: observation.fromBlock ?? 0,
+      toBlock: observation.toBlock ?? 0
     }
   });
 }
@@ -63,6 +77,14 @@ function buildThesis(
   }).format(observation.netFlowUsd);
   const confidence = `${(confidenceBps / 100).toFixed(2)}%`;
 
+  if (observation.dataSource === "mantle-sepolia-rpc-native-transfers") {
+    const blockRange = observation.fromBlock && observation.toBlock
+      ? ` blocks ${observation.fromBlock}-${observation.toBlock}`
+      : " recent blocks";
+
+    return `${AGENT_NAME} scanned live Mantle Sepolia${blockRange} and found ${observation.txCount} transactions across ${observation.uniqueWallets} wallets. The agent marks MNT network activity as ${direction} with ${confidence} confidence for the next hour.`;
+  }
+
   if (direction === "bullish") {
     return `${AGENT_NAME} detected ${flow} net inflow into ${observation.targetSymbol} across ${observation.uniqueWallets} wallets, including ${observation.whaleWallets} whale wallets. The agent marks this as bullish with ${confidence} confidence for the next hour.`;
   }
@@ -73,4 +95,3 @@ function buildThesis(
 
   return `${AGENT_NAME} detected mixed flow in ${observation.targetSymbol} with ${flow} net movement. The agent marks this as neutral with ${confidence} confidence for the next hour.`;
 }
-

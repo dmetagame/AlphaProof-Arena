@@ -43,6 +43,7 @@ type ContractPayload = {
 };
 
 type AgentScanResponse = {
+  dataSourceMode?: "live-mantle-rpc" | "demo-fallback";
   signal: {
     agentName: string;
     targetSymbol: string;
@@ -260,7 +261,9 @@ export default function Dashboard() {
         ...current
       ]);
       setScanStatus("ready");
-      setNotice("Prepared a commitSignal payload. It is not counted as on-chain until it is submitted to Mantle.");
+      setNotice(scan.dataSourceMode === "demo-fallback"
+        ? "Prepared a fallback commitSignal payload. Live Mantle RPC was unavailable, so it is not counted as on-chain."
+        : "Prepared a commitSignal payload from live Mantle RPC data. It is not counted as on-chain until submitted.");
     } catch {
       setScanStatus("error");
       setNotice("Agent scan failed locally. Keep the Next API route running and retry.");

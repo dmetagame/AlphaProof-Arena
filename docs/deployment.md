@@ -40,6 +40,14 @@ Current seeded proof:
 - Signal ID: `1`
 - `registerAgent` transaction: `0x599584dd950624f27b388fb46bb744b29ba50d3424fba6100b36a93adc3c88ab`
 - `commitSignal` transaction: `0xd82437582404025f72d3c92bcb8cf75ccff5c07e804bd8bbbd6955f695b817cc`
+- `resolveSignal` transaction: `0x546e1a4e5ab7a2177d5643ae31df352103e7a3adf8d70f30b19489e452b7b72e`
+- Score after resolution: `1` resolved, `1` correct, `+14` reputation, `+237` cumulative PnL bps.
+
+Resolve an expired seeded signal:
+
+```bash
+npm run resolve:mantle-sepolia
+```
 
 ## Frontend Environment
 
@@ -60,6 +68,7 @@ NEXT_PUBLIC_SCORE_REGISTRY_ADDRESS=0x746A932D764d37f10c2f474D170734A05a20e87a
 - Mantle Explorer verification is complete for `AgentRegistry`, `ScoreRegistry`, and `SignalRegistry`.
 - The public frontend shows the deployed `SignalRegistry` address in the top bar.
 - `/api/agent-scan` returns a JSON payload with `contract.functionName` equal to `commitSignal`.
+- `/api/chain-state` returns the live `ScoreRegistry` score and seeded signal resolution state.
 
 Run explorer verification:
 

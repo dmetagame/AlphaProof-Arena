@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type Agent = {
   rank: number;
@@ -17,9 +17,10 @@ type Signal = {
   target: string;
   direction: "Bullish" | "Bearish" | "Neutral";
   confidence: number;
-  status: "Pending" | "Resolved";
+  status: "Prepared" | "Pending" | "Resolved";
   result: string;
   proof: string;
+  proofUrl?: string;
   thesis?: string;
   expiresAt?: string;
   sourceDataHash?: string;
@@ -38,7 +39,7 @@ type ContractPayload = {
     sourceDataHash: string;
     explanationHash: string;
   };
-  args: Array<string | number>;
+  args: Array<string | number | boolean>;
 };
 
 type AgentScanResponse = {
@@ -53,6 +54,51 @@ type AgentScanResponse = {
     explanationHash: string;
   };
   contract: ContractPayload;
+};
+
+type ChainStateResponse = {
+  chainId: number;
+  observedAt: string;
+  contracts: {
+    agentRegistry: string;
+    scoreRegistry: string;
+    signalRegistry: string;
+  };
+  nextAgentId: string;
+  nextSignalId: string;
+  agent: {
+    owner: string;
+    name: string;
+    metadataURI: string;
+    active: boolean;
+    createdAt: string;
+  };
+  score: {
+    resolvedSignals: string;
+    correctSignals: string;
+    reputation: string;
+    cumulativePnLBps: string;
+    updatedAt: string;
+  };
+  signals: Array<{
+    id: string;
+    agentId: string;
+    kind: number;
+    targetId: string;
+    targetSymbol: string;
+    direction: "bullish" | "bearish" | "neutral";
+    confidenceBps: number;
+    createdAt: string;
+    expiresAt: string;
+    sourceDataHash: string;
+    explanationHash: string;
+    resolved: boolean;
+    correct: boolean;
+    pnlBps: string;
+    thesis?: string;
+    commitTx?: string;
+    resolveTx?: string;
+  }>;
 };
 
 const initialContract: ContractPayload = {
@@ -79,69 +125,36 @@ const initialContract: ContractPayload = {
 
 const signalRegistryAddress = process.env.NEXT_PUBLIC_SIGNAL_REGISTRY_ADDRESS
   || "0x0d22DdC5d0Da0E4988b04E0647b4643e7BDfFc79";
+const explorerBaseUrl = "https://sepolia.mantlescan.xyz";
+const seededCommitTx = "0xd82437582404025f72d3c92bcb8cf75ccff5c07e804bd8bbbd6955f695b817cc";
 
 const agents: Agent[] = [
   {
     rank: 1,
     name: "Whale Flow Agent",
     focus: "mETH accumulation clusters",
-    accuracy: "72.4%",
-    reputation: 148,
+    accuracy: "0.0%",
+    reputation: 0,
     spark: [38, 44, 51, 48, 66, 72, 83]
-  },
-  {
-    rank: 2,
-    name: "Liquidity Shift Agent",
-    focus: "DEX depth and pool imbalance",
-    accuracy: "68.9%",
-    reputation: 121,
-    spark: [35, 49, 46, 52, 58, 62, 71]
-  },
-  {
-    rank: 3,
-    name: "Volatility Agent",
-    focus: "short-window price dislocations",
-    accuracy: "64.1%",
-    reputation: 96,
-    spark: [29, 31, 45, 39, 55, 53, 61]
   }
 ];
 
 const initialSignals: Signal[] = [
   {
-    id: "AP-1042",
+    id: "Signal #1",
     agent: "Whale Flow Agent",
     target: "mETH",
     direction: "Bullish",
     confidence: 86,
-    status: "Resolved",
-    result: "+2.37%",
-    proof: "0xb477...abb3",
+    status: "Pending",
+    result: "Reading chain",
+    proof: shortenHash(seededCommitTx),
+    proofUrl: `${explorerBaseUrl}/tx/${seededCommitTx}`,
     thesis: "Whale Flow Agent detected $1,842,500 net inflow into mETH across 38 wallets, including 7 whale wallets.",
-    expiresAt: "2026-05-12T11:00:00.000Z",
+    expiresAt: "2026-05-13T20:33:07.000Z",
     sourceDataHash: initialContract.payload.sourceDataHash,
     explanationHash: initialContract.payload.explanationHash,
     contract: initialContract
-  },
-  {
-    id: "AP-1043",
-    agent: "Liquidity Shift Agent",
-    target: "MNT/USDC",
-    direction: "Bearish",
-    confidence: 74,
-    status: "Pending",
-    result: "42m left",
-    proof: "0x2fc9...aa10"
-  },
-  {
-    id: "AP-1044",
-    agent: "Volatility Agent",
-    target: "USDY",
-    direction: "Neutral",
-    confidence: 69,
-    status: "Resolved",
-    result: "+0.18%",
-    proof: "0xb7e2...443f"
   }
 ];
 
@@ -153,36 +166,90 @@ const events = [
 ] as const;
 
 export default function Dashboard() {
-  const [signals, setSignals] = useState(initialSignals);
+  const [preparedSignals, setPreparedSignals] = useState<Signal[]>([]);
+  const [chainState, setChainState] = useState<ChainStateResponse | null>(null);
+  const [chainStatus, setChainStatus] = useState<"loading" | "ready" | "error">("loading");
   const [scanStatus, setScanStatus] = useState<"idle" | "running" | "ready" | "error">("idle");
   const [notice, setNotice] = useState("Whale Flow Agent is ready to produce a Mantle commit payload.");
 
-  const resolved = signals.filter((signal) => signal.status === "Resolved").length;
-  const pending = signals.length - resolved;
-  const latest = signals[0];
-  const avgConfidence = useMemo(
-    () => Math.round(signals.reduce((sum, signal) => sum + signal.confidence, 0) / signals.length),
-    [signals]
+  useEffect(() => {
+    let active = true;
+
+    async function loadChainState() {
+      try {
+        const response = await fetch("/api/chain-state", { cache: "no-store" });
+        if (!response.ok) throw new Error("chain state failed");
+        const state = await response.json() as ChainStateResponse;
+        if (!active) return;
+        setChainState(state);
+        setChainStatus("ready");
+      } catch {
+        if (!active) return;
+        setChainStatus("error");
+      }
+    }
+
+    loadChainState();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const chainSignals = useMemo(
+    () => chainState?.signals.map(toDashboardSignal) ?? initialSignals,
+    [chainState]
   );
+  const displaySignals = useMemo(
+    () => [...preparedSignals, ...chainSignals],
+    [preparedSignals, chainSignals]
+  );
+  const displayAgents = useMemo(
+    () => agents.map((agent) => {
+      if (agent.name !== "Whale Flow Agent" || !chainState) return agent;
+
+      return {
+        ...agent,
+        accuracy: formatAccuracy(chainState.score),
+        reputation: Number(chainState.score.reputation)
+      };
+    }),
+    [chainState]
+  );
+  const committed = chainState ? Math.max(0, Number(chainState.nextSignalId) - 1) : chainSignals.length;
+  const resolved = chainState
+    ? Number(chainState.score.resolvedSignals)
+    : chainSignals.filter((signal) => signal.status === "Resolved").length;
+  const pending = chainSignals.filter((signal) => signal.status === "Pending").length;
+  const latest = displaySignals[0];
+  const avgConfidence = useMemo(
+    () => Math.round(displaySignals.reduce((sum, signal) => sum + signal.confidence, 0) / displaySignals.length),
+    [displaySignals]
+  );
+  const topReputation = chainState ? Number(chainState.score.reputation) : agents[0].reputation;
+  const networkDetail = chainStatus === "ready"
+    ? `SignalRegistry ${shortAddress(chainState?.contracts.signalRegistry ?? signalRegistryAddress)}`
+    : chainStatus === "loading"
+      ? "Reading live chain state"
+      : "Live RPC unavailable";
 
   async function addSignal() {
     setScanStatus("running");
-    setNotice("Whale Flow Agent is reading Mantle demo flow data.");
+    setNotice("Whale Flow Agent is reading Mantle demo flow data and preparing a transaction payload.");
 
     try {
       const response = await fetch("/api/agent-scan", { cache: "no-store" });
       if (!response.ok) throw new Error("agent scan failed");
 
       const scan = await response.json() as AgentScanResponse;
-      setSignals((current) => [
+      setPreparedSignals((current) => [
         {
-          id: `AP-${1042 + current.length}`,
+          id: `Prepared #${current.length + 1}`,
           agent: scan.signal.agentName,
           target: scan.signal.targetSymbol,
           direction: toTitleDirection(scan.signal.direction),
           confidence: Math.round(scan.signal.confidenceBps / 100),
-          status: "Pending",
-          result: formatTimeLeft(scan.signal.expiresAt),
+          status: "Prepared",
+          result: "Ready to commit",
           proof: shortenHash(scan.signal.explanationHash),
           thesis: scan.signal.thesis,
           expiresAt: scan.signal.expiresAt,
@@ -193,7 +260,7 @@ export default function Dashboard() {
         ...current
       ]);
       setScanStatus("ready");
-      setNotice("New commitSignal payload prepared for Mantle Sepolia.");
+      setNotice("Prepared a commitSignal payload. It is not counted as on-chain until it is submitted to Mantle.");
     } catch {
       setScanStatus("error");
       setNotice("Agent scan failed locally. Keep the Next API route running and retry.");
@@ -230,7 +297,7 @@ export default function Dashboard() {
         <div className="network">
           <span className="status-dot" />
           <strong>Mantle Sepolia</strong>
-          <span>{signalRegistryAddress ? `SignalRegistry ${shortAddress(signalRegistryAddress)}` : "SignalRegistry pending deploy"}</span>
+          <span>{networkDetail}</span>
         </div>
       </header>
 
@@ -238,15 +305,15 @@ export default function Dashboard() {
         <aside className="sidebar">
           <p className="nav-label">Arena</p>
           <ul className="nav-list">
-            <li className="active">Dashboard <span className="pill blue">{signals.length}</span></li>
-            <li>Agents <span className="pill">{agents.length}</span></li>
+            <li className="active">Dashboard <span className="pill blue">{displaySignals.length}</span></li>
+            <li>Agents <span className="pill">{displayAgents.length}</span></li>
             <li>Signals <span className="pill green">{resolved}</span></li>
             <li>Alpha Cards <span className="pill amber">Live</span></li>
           </ul>
 
           <div className="side-panel">
             <strong>Deployment Award</strong>
-            <p>Verified Mantle contracts, public frontend, AI callable signal function, and demo video checklist.</p>
+            <p>Verified Mantle contracts, public frontend, callable AI signal flow, and live score reads.</p>
           </div>
         </aside>
 
@@ -256,7 +323,7 @@ export default function Dashboard() {
               <p className="eyebrow">Verifiable AI Alpha</p>
               <h2>Agents earn reputation only when their Mantle signals resolve correctly.</h2>
               <p>
-                Every signal is timestamped on Mantle before expiry, then scored after the outcome window using the resolver engine.
+                Every committed signal is timestamped on Mantle before expiry, then scored after the outcome window using the resolver engine.
               </p>
               <div className="action-row">
                 <button className="primary-btn" onClick={addSignal} disabled={scanStatus === "running"}>
@@ -269,14 +336,14 @@ export default function Dashboard() {
 
             <section className="metric-grid" aria-label="Arena metrics">
               <div className="metric">
-                <span>Committed</span>
-                <strong>{signals.length}</strong>
+                <span>On-chain Signals</span>
+                <strong>{committed}</strong>
                 <small>{pending} pending resolution</small>
               </div>
               <div className="metric">
                 <span>Resolved</span>
                 <strong>{resolved}</strong>
-                <small>On-chain score updates</small>
+                <small>{chainStatus === "ready" ? "Read from ScoreRegistry" : "Waiting for live chain state"}</small>
               </div>
               <div className="metric">
                 <span>Avg Confidence</span>
@@ -285,7 +352,7 @@ export default function Dashboard() {
               </div>
               <div className="metric">
                 <span>Top Reputation</span>
-                <strong>148</strong>
+                <strong>{topReputation}</strong>
                 <small>Whale Flow Agent</small>
               </div>
             </section>
@@ -299,7 +366,7 @@ export default function Dashboard() {
                   <span className="pill green">Resolved proof</span>
                 </div>
                 <div className="leaderboard">
-                  {agents.map((agent) => (
+                  {displayAgents.map((agent) => (
                     <article className="agent-row" key={agent.name}>
                       <div className="rank">{agent.rank}</div>
                       <div className="agent-main">
@@ -323,10 +390,10 @@ export default function Dashboard() {
               <section className="panel">
                 <div className="panel-head">
                   <h3>Signal Feed</h3>
-                  <span className="pill blue">Mantle committed</span>
+                  <span className="pill blue">Live Mantle state</span>
                 </div>
                 <div className="signals">
-                  {signals.map((signal) => (
+                  {displaySignals.map((signal) => (
                     <article className={`signal-row ${signal.status.toLowerCase()}`} key={signal.id}>
                       <div className="signal-main">
                         <strong>{signal.id} · {signal.target} · {signal.direction}</strong>
@@ -339,7 +406,7 @@ export default function Dashboard() {
                         <span className="muted">{signal.confidence}%</span>
                       </div>
                       <span className={signal.status === "Resolved" ? "pill green" : "pill amber"}>{signal.status}</span>
-                      <a className="proof-link" href="#proof">{signal.proof}</a>
+                      <a className="proof-link" href={signal.proofUrl ?? `${explorerBaseUrl}/address/${signalRegistryAddress}`} target="_blank" rel="noreferrer">{signal.proof}</a>
                     </article>
                   ))}
                 </div>
@@ -400,7 +467,7 @@ export default function Dashboard() {
               <section className="panel">
                 <div className="panel-head">
                   <h3>Proof Timeline</h3>
-                  <span className="pill">Today</span>
+                  <span className="pill">Seeded proof</span>
                 </div>
                 <ol className="timeline">
                   {events.map(([time, title, detail]) => (
@@ -422,6 +489,47 @@ export default function Dashboard() {
   );
 }
 
+function toDashboardSignal(signal: ChainStateResponse["signals"][number]): Signal {
+  const proofTx = signal.resolveTx ?? signal.commitTx;
+
+  return {
+    id: `Signal #${signal.id}`,
+    agent: "Whale Flow Agent",
+    target: signal.targetSymbol,
+    direction: toTitleDirection(signal.direction),
+    confidence: Math.round(signal.confidenceBps / 100),
+    status: signal.resolved ? "Resolved" : "Pending",
+    result: signal.resolved ? formatPnl(signal.pnlBps) : formatUnixTimeLeft(signal.expiresAt),
+    proof: proofTx ? shortenHash(proofTx) : shortenHash(signal.explanationHash),
+    proofUrl: proofTx ? `${explorerBaseUrl}/tx/${proofTx}` : `${explorerBaseUrl}/address/${signalRegistryAddress}`,
+    thesis: signal.thesis,
+    expiresAt: new Date(Number(signal.expiresAt) * 1000).toISOString(),
+    sourceDataHash: signal.sourceDataHash,
+    explanationHash: signal.explanationHash,
+    contract: {
+      functionName: "commitSignal",
+      payload: {
+        agentId: signal.agentId,
+        kind: signal.kind,
+        targetId: signal.targetId,
+        confidenceBps: signal.confidenceBps,
+        expiresAt: signal.expiresAt,
+        sourceDataHash: signal.sourceDataHash,
+        explanationHash: signal.explanationHash
+      },
+      args: [
+        signal.agentId,
+        signal.kind,
+        signal.targetId,
+        signal.confidenceBps,
+        signal.expiresAt,
+        signal.sourceDataHash,
+        signal.explanationHash
+      ]
+    }
+  };
+}
+
 function toTitleDirection(direction: AgentScanResponse["signal"]["direction"]): Signal["direction"] {
   if (direction === "bullish") return "Bullish";
   if (direction === "bearish") return "Bearish";
@@ -439,4 +547,22 @@ function shortAddress(address: string) {
 function formatTimeLeft(expiresAt: string) {
   const minutes = Math.max(1, Math.round((Date.parse(expiresAt) - Date.now()) / 60_000));
   return `${minutes}m left`;
+}
+
+function formatUnixTimeLeft(expiresAt: string) {
+  const deltaMinutes = Math.round((Number(expiresAt) * 1000 - Date.now()) / 60_000);
+  if (deltaMinutes <= 0) return "Expired";
+  return `${deltaMinutes}m left`;
+}
+
+function formatPnl(pnlBps: string) {
+  const value = Number(pnlBps) / 100;
+  return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
+}
+
+function formatAccuracy(score: ChainStateResponse["score"]) {
+  const resolvedSignals = Number(score.resolvedSignals);
+  if (resolvedSignals === 0) return "0.0%";
+
+  return `${((Number(score.correctSignals) / resolvedSignals) * 100).toFixed(1)}%`;
 }

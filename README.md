@@ -99,6 +99,8 @@ Seeded demo proof:
 - Signal ID: `1`
 - `registerAgent` transaction: `0x599584dd950624f27b388fb46bb744b29ba50d3424fba6100b36a93adc3c88ab`
 - `commitSignal` transaction: `0xd82437582404025f72d3c92bcb8cf75ccff5c07e804bd8bbbd6955f695b817cc`
+- `resolveSignal` transaction: `0x546e1a4e5ab7a2177d5643ae31df352103e7a3adf8d70f30b19489e452b7b72e`
+- Final score: `1` resolved, `1` correct, `+14` reputation, `+237` cumulative PnL bps.
 
 ## Deployment Award Checklist
 

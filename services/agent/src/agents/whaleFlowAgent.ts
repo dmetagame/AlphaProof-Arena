@@ -3,7 +3,11 @@ import { AlphaSignal, AlphaSignalSchema, MantleObservation } from "../schema.js"
 
 const AGENT_NAME = "Whale Flow Agent";
 
-export function generateWhaleFlowSignal(observation: MantleObservation, now = new Date()): AlphaSignal {
+export function generateWhaleFlowSignal(
+  observation: MantleObservation,
+  now = new Date(),
+  options: { expiryMinutes?: number } = {}
+): AlphaSignal {
   const whaleConcentration = observation.uniqueWallets === 0
     ? 0
     : observation.whaleWallets / observation.uniqueWallets;
@@ -33,7 +37,7 @@ export function generateWhaleFlowSignal(observation: MantleObservation, now = ne
         ? "bearish"
         : "neutral";
 
-  const expiresAt = new Date(now.getTime() + 60 * 60 * 1000);
+  const expiresAt = new Date(now.getTime() + (options.expiryMinutes ?? 60) * 60 * 1000);
   const sourceDataHash = hashJson(observation);
   const thesis = buildThesis(observation, direction, confidenceBps);
   const explanationHash = hashText(thesis);

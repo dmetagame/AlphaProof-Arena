@@ -44,6 +44,13 @@ const seededSignalMetadata: Record<string, {
     thesis: "Whale Flow Agent detected $1,842,500 net inflow into mETH across 38 wallets, including 7 whale wallets.",
     commitTx: "0xd82437582404025f72d3c92bcb8cf75ccff5c07e804bd8bbbd6955f695b817cc",
     resolveTx: "0x546e1a4e5ab7a2177d5643ae31df352103e7a3adf8d70f30b19489e452b7b72e"
+  },
+  "2": {
+    targetSymbol: "MNT",
+    direction: "bullish",
+    thesis: "Whale Flow Agent scanned live Mantle Sepolia blocks 39339173-39339196 and found 29 transactions across 12 wallets. The outcome window produced 28 transactions across 10 wallets, keeping activity above the active-network threshold.",
+    commitTx: "0x253713fce55a69378e6ed030d01358590b60a3dabfd1afe8f7a5bb002b52f7e3",
+    resolveTx: "0xa6731a1462f5c728ca636e431b32de65c903413eb9955f18168f742ecc1e1fab"
   }
 };
 

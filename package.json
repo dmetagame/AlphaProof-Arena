@@ -13,6 +13,8 @@
     "test": "npm run test --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
     "seed:mantle-sepolia": "npm run build --workspace services/agent && node scripts/commit-demo-signal.mjs",
+    "commit:live-signal": "npm run build --workspace services/agent && node scripts/commit-live-signal.mjs",
+    "resolve:live-signal": "npm run build --workspace services/agent && node scripts/resolve-live-signal.mjs",
     "resolve:mantle-sepolia": "npm run build --workspace services/agent && node scripts/resolve-demo-signal.mjs"
   },
   "engines": {

@@ -7,7 +7,12 @@ import { buildDemoOutcome } from "./data/demoOutcomeData.js";
 import { loadDemoMantleObservations } from "./data/demoMantleData.js";
 import { buildMantleNativeTransferObservation } from "./data/liveMantleRpcData.js";
 import { buildDemoCommitBundle, stringifyBigInts } from "./demoBundle.js";
-import { resolveSignalOutcome, toContractResolutionPayload, toResolveSignalArgs } from "./resolver.js";
+import {
+  resolveActivitySignalOutcome,
+  resolveSignalOutcome,
+  toContractResolutionPayload,
+  toResolveSignalArgs
+} from "./resolver.js";
 
 test("generates a valid whale flow signal from demo Mantle observations", () => {
   const [observation] = loadDemoMantleObservations();
@@ -116,4 +121,26 @@ test("builds a Mantle observation from live RPC block-shaped data", () => {
     "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
   ]);
+});
+
+test("resolves a live MNT activity signal using an activity threshold", () => {
+  const [observation] = loadDemoMantleObservations();
+  const signal = generateWhaleFlowSignal(observation, new Date("2026-05-12T10:00:00.000Z"));
+  const resolution = resolveActivitySignalOutcome(signal, {
+    targetSymbol: signal.targetSymbol,
+    targetId: signal.targetId as `0x${string}`,
+    windowStart: signal.expiresAt,
+    windowEnd: "2026-05-12T10:02:00.000Z",
+    baselineTxCount: observation.txCount,
+    outcomeTxCount: 28,
+    baselineUniqueWallets: observation.uniqueWallets,
+    outcomeUniqueWallets: 7,
+    activityThreshold: 20,
+    sourceDataHash: signal.sourceDataHash as `0x${string}`
+  });
+
+  assert.equal(signal.direction, "bullish");
+  assert.equal(resolution.correct, true);
+  assert.ok(resolution.pnlBps > 0);
+  assert.ok(resolution.reputationDelta > 0);
 });

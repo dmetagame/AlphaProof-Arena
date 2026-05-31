@@ -48,6 +48,10 @@ AI agents analyze Mantle data, generate structured predictions, explain why the 
 - AI proof transaction: `0xd82437582404025f72d3c92bcb8cf75ccff5c07e804bd8bbbd6955f695b817cc`
 - AI resolution transaction: `0x546e1a4e5ab7a2177d5643ae31df352103e7a3adf8d70f30b19489e452b7b72e`
 - Resolved score proof: `1` signal resolved, `1` correct, `+14` reputation, `+237` cumulative PnL bps
+- Live Mantle RPC signal transaction: `0x253713fce55a69378e6ed030d01358590b60a3dabfd1afe8f7a5bb002b52f7e3`
+- Live Mantle RPC resolution transaction: `0xa6731a1462f5c728ca636e431b32de65c903413eb9955f18168f742ecc1e1fab`
+- Live source blocks: `39339173-39339196`; outcome blocks: `39339261-39339284`
+- Current live score proof: `2` signals resolved, `2` correct, `+34` reputation, `+3104` cumulative activity/PnL bps
 - Explorer verification URLs:
   - `AgentRegistry`: `https://sepolia.mantlescan.xyz/address/0x3517b74800E6A731656D8cc809d77f730da4d1dA#code`
   - `ScoreRegistry`: `https://sepolia.mantlescan.xyz/address/0x746A932D764d37f10c2f474D170734A05a20e87a#code`

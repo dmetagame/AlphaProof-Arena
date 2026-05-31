@@ -5,6 +5,10 @@ import { loadDemoMantleObservations } from "./data/demoMantleData.js";
 import { loadLiveMantleObservation, LiveMantleObservationOptions } from "./data/liveMantleRpcData.js";
 import { resolveSignalOutcome, toContractResolutionPayload, toResolveSignalArgs } from "./resolver.js";
 
+type CommitBundleOptions = LiveMantleObservationOptions & {
+  expiryMinutes?: number;
+};
+
 export function buildDemoCommitBundle(now = new Date(), agentId = BigInt(1)) {
   const [observation] = loadDemoMantleObservations();
   return buildCommitBundleFromObservation(observation, now, agentId);
@@ -13,18 +17,19 @@ export function buildDemoCommitBundle(now = new Date(), agentId = BigInt(1)) {
 export async function buildLiveCommitBundle(
   now = new Date(),
   agentId = BigInt(1),
-  options: LiveMantleObservationOptions = {}
+  options: CommitBundleOptions = {}
 ) {
   const observation = await loadLiveMantleObservation(options);
-  return buildCommitBundleFromObservation(observation, now, agentId);
+  return buildCommitBundleFromObservation(observation, now, agentId, options.expiryMinutes);
 }
 
 function buildCommitBundleFromObservation(
   observation: ReturnType<typeof loadDemoMantleObservations>[number],
   now: Date,
-  agentId: bigint
+  agentId: bigint,
+  expiryMinutes?: number
 ) {
-  const signal = generateWhaleFlowSignal(observation, now);
+  const signal = generateWhaleFlowSignal(observation, now, { expiryMinutes });
   const payload = toContractSignalPayload(signal, agentId);
   const args = toCommitSignalArgs(payload);
 

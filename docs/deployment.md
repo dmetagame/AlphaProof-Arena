@@ -49,6 +49,27 @@ Resolve an expired seeded signal:
 npm run resolve:mantle-sepolia
 ```
 
+Current live Mantle RPC proof:
+
+- Agent ID: `1`
+- Signal ID: `2`
+- Source blocks: `39339173-39339196`
+- Outcome blocks: `39339261-39339284`
+- Source transaction sample:
+  - `0x0e8814287caf10afe108ed5a46021bcf0591e7d4db473abbc964f6b2a66005b1`
+  - `0x73444d86d4d2706bb5e698117491c8f914b4dcfad8bfe4368a283629ca26d1f9`
+  - `0xaf010d458b8eae8c9a589c39a341c4a457202005feb7b821d7ded36ea56befea`
+- `commitSignal` transaction: `0x253713fce55a69378e6ed030d01358590b60a3dabfd1afe8f7a5bb002b52f7e3`
+- `resolveSignal` transaction: `0xa6731a1462f5c728ca636e431b32de65c903413eb9955f18168f742ecc1e1fab`
+- Score after live proof: `2` resolved, `2` correct, `+34` reputation, `+3104` cumulative activity/PnL bps.
+
+Commit and resolve a short-expiry live signal:
+
+```bash
+LIVE_SIGNAL_EXPIRY_MINUTES=2 npm run commit:live-signal
+npm run resolve:live-signal
+```
+
 ## Frontend Environment
 
 Current public frontend: `https://alphaproof-arena.vercel.app`

@@ -61,46 +61,55 @@ const client = createPublicClient({
 export async function GET() {
   try {
     const agentId = 1n;
-    const [nextAgentId, nextSignalId, agent, score, signalIds] = await Promise.all([
-      client.readContract({ address: agentRegistryAddress, abi: agentAbi, functionName: "nextAgentId" }),
-      client.readContract({ address: signalRegistryAddress, abi: signalAbi, functionName: "nextSignalId" }),
-      client.readContract({ address: agentRegistryAddress, abi: agentAbi, functionName: "getAgent", args: [agentId] }),
-      client.readContract({ address: scoreRegistryAddress, abi: scoreAbi, functionName: "getScore", args: [agentId] }),
+    const nextAgentId = await readWithRetry(() => (
+      client.readContract({ address: agentRegistryAddress, abi: agentAbi, functionName: "nextAgentId" })
+    ));
+    const nextSignalId = await readWithRetry(() => (
+      client.readContract({ address: signalRegistryAddress, abi: signalAbi, functionName: "nextSignalId" })
+    ));
+    const agent = await readWithRetry(() => (
+      client.readContract({ address: agentRegistryAddress, abi: agentAbi, functionName: "getAgent", args: [agentId] })
+    ));
+    const score = await readWithRetry(() => (
+      client.readContract({ address: scoreRegistryAddress, abi: scoreAbi, functionName: "getScore", args: [agentId] })
+    ));
+    const signalIds = await readWithRetry(() => (
       client.readContract({ address: signalRegistryAddress, abi: signalAbi, functionName: "signalsOfAgent", args: [agentId] })
-    ]);
+    ));
 
-    const signals = await Promise.all(
-      signalIds.map(async (signalId) => {
-        const signal = await client.readContract({
+    const signals = [];
+    for (const signalId of signalIds) {
+      const signal = await readWithRetry(() => (
+        client.readContract({
           address: signalRegistryAddress,
           abi: signalAbi,
           functionName: "getSignal",
           args: [signalId]
-        });
-        const id = signalId.toString();
-        const metadata = seededSignalMetadata[id];
+        })
+      ));
+      const id = signalId.toString();
+      const metadata = seededSignalMetadata[id];
 
-        return {
-          id,
-          agentId: signal.agentId,
-          kind: signal.kind,
-          targetId: signal.targetId,
-          targetSymbol: metadata?.targetSymbol || shortenHash(signal.targetId),
-          direction: metadata?.direction || "neutral",
-          confidenceBps: signal.confidenceBps,
-          createdAt: signal.createdAt,
-          expiresAt: signal.expiresAt,
-          sourceDataHash: signal.sourceDataHash,
-          explanationHash: signal.explanationHash,
-          resolved: signal.resolved,
-          correct: signal.correct,
-          pnlBps: signal.pnlBps,
-          thesis: metadata?.thesis,
-          commitTx: metadata?.commitTx,
-          resolveTx: metadata?.resolveTx
-        };
-      })
-    );
+      signals.push({
+        id,
+        agentId: signal.agentId,
+        kind: signal.kind,
+        targetId: signal.targetId,
+        targetSymbol: metadata?.targetSymbol || shortenHash(signal.targetId),
+        direction: metadata?.direction || "neutral",
+        confidenceBps: signal.confidenceBps,
+        createdAt: signal.createdAt,
+        expiresAt: signal.expiresAt,
+        sourceDataHash: signal.sourceDataHash,
+        explanationHash: signal.explanationHash,
+        resolved: signal.resolved,
+        correct: signal.correct,
+        pnlBps: signal.pnlBps,
+        thesis: metadata?.thesis,
+        commitTx: metadata?.commitTx,
+        resolveTx: metadata?.resolveTx
+      });
+    }
 
     return Response.json(stringifyBigInts({
       chainId,
@@ -134,4 +143,23 @@ function stringifyBigInts(value: unknown): unknown {
 
 function shortenHash(hash: string) {
   return `${hash.slice(0, 6)}...${hash.slice(-4)}`;
+}
+
+async function readWithRetry<T>(read: () => Promise<T>, attempts = 3): Promise<T> {
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      return await read();
+    } catch (error) {
+      lastError = error;
+      if (attempt < attempts) await delay(350 * attempt);
+    }
+  }
+
+  throw lastError;
+}
+
+function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }

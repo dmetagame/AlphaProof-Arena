@@ -19,7 +19,14 @@ import {
   Timer,
   Trophy
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { AnimatedNumber } from "@/components/animated-number";
+import { useMotion } from "@/components/motion-provider";
+import { useArenaMotion } from "@/lib/animation/use-arena-motion";
+import { useCardTilt } from "@/lib/animation/use-card-tilt";
+import { useMagneticButton } from "@/lib/animation/use-magnetic-button";
+import { useParallax } from "@/lib/animation/use-parallax";
+import { useRevealAnimation } from "@/lib/animation/use-reveal-animation";
 
 type Agent = {
   rank: number;
@@ -231,13 +238,18 @@ const events = [
   ["10:41", "Share", "Alpha Card generated for public voting."]
 ] as const;
 
+const proofParticles = Array.from({ length: 18 }, (_, index) => index + 1);
+
 export default function Dashboard() {
+  const motionScopeRef = useRef<HTMLElement | null>(null);
+  const { scrollTo } = useMotion();
   const [preparedSignals, setPreparedSignals] = useState<Signal[]>([]);
   const [chainState, setChainState] = useState<ChainStateResponse | null>(null);
   const [chainStatus, setChainStatus] = useState<"loading" | "ready" | "error">("loading");
   const [scanStatus, setScanStatus] = useState<"idle" | "running" | "ready" | "error">("idle");
   const [selectedSignalId, setSelectedSignalId] = useState<string | null>(null);
   const [dossierTab, setDossierTab] = useState<DossierTab>("evidence");
+  const [activeSection, setActiveSection] = useState("command");
   const [notice, setNotice] = useState("Whale Flow Agent is ready to produce a Mantle commit payload.");
 
   useEffect(() => {
@@ -299,17 +311,35 @@ export default function Dashboard() {
   const accuracy = chainState ? formatAccuracy(chainState.score) : displayAgents[0].accuracy;
   const cumulativeBps = chainState ? Number(chainState.score.cumulativePnLBps) : 0;
   const proofLinks = getProofLinks(selectedSignal);
+  const heroWords = displayAgents[0].name.split(" ");
   const networkDetail = chainStatus === "ready"
     ? `SignalRegistry ${shortAddress(chainState?.contracts.signalRegistry ?? signalRegistryAddress)}`
     : chainStatus === "loading"
       ? "Reading live chain state"
       : "Live RPC unavailable";
 
+  useRevealAnimation(motionScopeRef, { refreshKey: displaySignals.length });
+  useParallax(motionScopeRef, displaySignals.length);
+  useMagneticButton(motionScopeRef);
+  useCardTilt(motionScopeRef);
+  useArenaMotion(motionScopeRef, {
+    activeSection,
+    dossierTab,
+    onActiveSectionChange: setActiveSection,
+    scanStatus,
+    signalCount: displaySignals.length
+  });
+
   useEffect(() => {
     if (selectedSignalId && !displaySignals.some((signal) => signal.id === selectedSignalId)) {
       setSelectedSignalId(null);
     }
   }, [displaySignals, selectedSignalId]);
+
+  function scrollToSection(section: string) {
+    setActiveSection(section);
+    scrollTo(`#${section}`, { offset: -92, duration: 1 });
+  }
 
   async function addSignal() {
     setScanStatus("running");
@@ -370,7 +400,14 @@ export default function Dashboard() {
   }
 
   return (
-    <main className="app-shell">
+    <main className="app-shell" ref={motionScopeRef}>
+      <div className="ambient-stage" aria-hidden="true" data-parallax-scene>
+        <span className="ambient-scanline" data-parallax="0.1" />
+        {proofParticles.map((particle) => (
+          <span className={`proof-particle proof-particle-${particle}`} key={particle} data-parallax="0.06" />
+        ))}
+      </div>
+
       <header className="topbar">
         <div className="brand">
           <div className="mark">
@@ -398,22 +435,22 @@ export default function Dashboard() {
         <aside className="side-rail">
           <div className="rail-section">
             <span className="rail-label">Arena</span>
-            <button className="rail-item active">
+            <button className={`rail-item ${activeSection === "command" ? "active" : ""}`} onClick={() => scrollToSection("command")} data-magnetic>
               <Activity size={16} />
               <span>Command</span>
               <strong>{displaySignals.length}</strong>
             </button>
-            <button className="rail-item">
+            <button className={`rail-item ${activeSection === "agents" ? "active" : ""}`} onClick={() => scrollToSection("agents")} data-magnetic>
               <ShieldCheck size={16} />
               <span>Agents</span>
               <strong>{displayAgents.length}</strong>
             </button>
-            <button className="rail-item">
+            <button className={`rail-item ${activeSection === "signals" ? "active" : ""}`} onClick={() => scrollToSection("signals")} data-magnetic>
               <GitCommitHorizontal size={16} />
               <span>Signals</span>
               <strong>{resolved}</strong>
             </button>
-            <button className="rail-item">
+            <button className={`rail-item ${activeSection === "score" ? "active" : ""}`} onClick={() => scrollToSection("score")} data-magnetic>
               <Trophy size={16} />
               <span>Score</span>
               <strong>{topReputation}</strong>
@@ -430,82 +467,97 @@ export default function Dashboard() {
         </aside>
 
         <section className="main">
-          <section className="command-center">
-            <div className="agent-hero">
-              <div className="section-kicker">
+          <section className="command-center" id="command" data-section="command">
+            <div className="agent-hero" data-tilt-card data-parallax-scene>
+              <div className="hero-motion-layer" aria-hidden="true">
+                <span className="hero-scanline" data-parallax="0.08" />
+                <span className="hero-edge-light" />
+              </div>
+              <div className="section-kicker" data-hero-reveal>
                 <BadgeCheck size={15} />
                 Verifiable AI alpha
               </div>
-              <h2>{displayAgents[0].name}</h2>
-              <div className="agent-meta-grid">
+              <h2 className="hero-title" aria-label={displayAgents[0].name}>
+                {heroWords.map((word) => (
+                  <span className="hero-word-mask" key={word}>
+                    <span data-hero-word>{word}</span>
+                  </span>
+                ))}
+              </h2>
+              <div className="agent-meta-grid" data-hero-reveal>
                 <span>Rank #{displayAgents[0].rank}</span>
                 <span>{accuracy} accuracy</span>
                 <span>{chainState ? shortAddress(chainState.agent.owner) : "Owner loading"}</span>
               </div>
-              <div className="action-row">
-                <button className="primary-btn" onClick={addSignal} disabled={scanStatus === "running"}>
-                  {scanStatus === "running" ? <ScanLine size={17} className="spin" /> : <Play size={17} />}
+              <div className="action-row" data-hero-reveal>
+                <button className="primary-btn" onClick={addSignal} disabled={scanStatus === "running"} data-magnetic>
+                  {scanStatus === "running" ? <ScanLine size={17} className="scan-spinner" /> : <Play size={17} />}
                   {scanStatus === "running" ? "Scanning" : "Run Scan"}
                 </button>
-                <button className="secondary-btn" onClick={copyAlphaCard}>
+                <button className="secondary-btn" onClick={copyAlphaCard} data-magnetic>
                   <Copy size={17} />
                   Copy Card
                 </button>
-                <a className="ghost-btn" href={selectedSignal.proofUrl ?? `${explorerBaseUrl}/address/${signalRegistryAddress}`} target="_blank" rel="noreferrer">
+                <a className="ghost-btn" href={selectedSignal.proofUrl ?? `${explorerBaseUrl}/address/${signalRegistryAddress}`} target="_blank" rel="noreferrer" data-magnetic>
                   <ArrowUpRight size={17} />
                   Proof
                 </a>
               </div>
-              <div className={`notice ${scanStatus}`}>
+              <div className={`notice ${scanStatus}`} data-hero-reveal>
                 <span />
                 {notice}
               </div>
+              <div className="xp-burst" aria-hidden="true">+120 XP</div>
+              <div className="achievement-toast" aria-hidden="true">
+                <strong>Achievement unlocked</strong>
+                <span>Proof payload prepared</span>
+              </div>
             </div>
 
-            <div className="score-panel">
+            <div className="score-panel" id="score" data-tilt-card>
               <div className="score-ring" style={{ "--score": `${Math.min(Math.max(topReputation, 0), 100) * 3.6}deg` } as React.CSSProperties}>
                 <div>
                   <span>Reputation</span>
-                  <strong>{topReputation}</strong>
+                  <AnimatedNumber value={topReputation} />
                 </div>
               </div>
               <div className="score-stats">
                 <div>
                   <span>Resolved</span>
-                  <strong>{resolved}</strong>
+                  <AnimatedNumber value={resolved} />
                 </div>
                 <div>
                   <span>Correct</span>
-                  <strong>{chainState?.score.correctSignals ?? "0"}</strong>
+                  <AnimatedNumber value={Number(chainState?.score.correctSignals ?? "0")} />
                 </div>
                 <div>
                   <span>Activity bps</span>
-                  <strong>{formatSigned(cumulativeBps)}</strong>
+                  <AnimatedNumber value={cumulativeBps} prefix={cumulativeBps >= 0 ? "+" : ""} />
                 </div>
               </div>
             </div>
           </section>
 
-          <section className="metric-strip" aria-label="Arena metrics">
-            <article className="metric-card cobalt">
+          <section className="metric-strip" aria-label="Arena metrics" data-reveal-group>
+            <article className="metric-card cobalt" data-tilt-card>
               <Layers3 size={18} />
               <span>On-chain</span>
-              <strong>{committed}</strong>
+              <AnimatedNumber value={committed} />
               <small>{pending} pending</small>
             </article>
-            <article className="metric-card mint">
+            <article className="metric-card mint" data-tilt-card>
               <ShieldCheck size={18} />
               <span>Resolved</span>
-              <strong>{resolved}</strong>
+              <AnimatedNumber value={resolved} />
               <small>{chainStatus === "ready" ? "ScoreRegistry" : "Reading chain"}</small>
             </article>
-            <article className="metric-card amber">
+            <article className="metric-card amber" data-tilt-card>
               <BarChart3 size={18} />
               <span>Confidence</span>
-              <strong>{avgConfidence}%</strong>
+              <AnimatedNumber value={avgConfidence} suffix="%" />
               <small>{displaySignals.length} visible</small>
             </article>
-            <article className="metric-card coral">
+            <article className="metric-card coral" data-tilt-card>
               <DatabaseZap size={18} />
               <span>Source</span>
               <strong>{formatDataSource(selectedSignal.evidence?.dataSource)}</strong>
@@ -515,7 +567,7 @@ export default function Dashboard() {
 
           <div className="content-grid">
             <div className="left-stack">
-              <section className="panel signal-studio">
+              <section className="panel signal-studio" id="signals" data-section="signals" data-reveal>
                 <div className="panel-head">
                   <div>
                     <span className="panel-kicker">Signal deck</span>
@@ -533,6 +585,7 @@ export default function Dashboard() {
                       className={`signal-card ${signal.status.toLowerCase()} ${selectedSignal.id === signal.id ? "selected" : ""}`}
                       key={signal.id}
                       style={{ "--delay": `${index * 70}ms` } as React.CSSProperties}
+                      data-tilt-card
                     >
                       <div className="signal-index">{String(index + 1).padStart(2, "0")}</div>
                       <div className="signal-body">
@@ -559,7 +612,7 @@ export default function Dashboard() {
                       <button className="inspect-btn" onClick={() => {
                         setSelectedSignalId(signal.id);
                         setDossierTab("evidence");
-                      }}>
+                      }} data-magnetic>
                         <ScanLine size={15} />
                         Inspect
                       </button>
@@ -568,7 +621,7 @@ export default function Dashboard() {
                 </div>
               </section>
 
-              <section className="panel agent-panel">
+              <section className="panel agent-panel" id="agents" data-section="agents" data-reveal>
                 <div className="panel-head">
                   <div>
                     <span className="panel-kicker">Agent arena</span>
@@ -578,7 +631,7 @@ export default function Dashboard() {
                 </div>
                 <div className="agent-grid">
                   {displayAgents.map((agent) => (
-                    <article className="agent-row" key={agent.name}>
+                    <article className="agent-row" key={agent.name} data-tilt-card>
                       <div className="rank">#{agent.rank}</div>
                       <div className="agent-main">
                         <strong>{agent.name}</strong>
@@ -590,7 +643,7 @@ export default function Dashboard() {
                         ))}
                       </div>
                       <div className="score">
-                        <strong>{agent.reputation}</strong>
+                        <AnimatedNumber value={agent.reputation} />
                         <span>{agent.accuracy}</span>
                       </div>
                     </article>
@@ -600,7 +653,8 @@ export default function Dashboard() {
             </div>
 
             <aside className="dossier">
-              <section className="alpha-pass">
+              <section className="alpha-pass" data-reveal data-tilt-card data-parallax-scene>
+                <span className="alpha-edge-light" aria-hidden="true" />
                 <div className="alpha-topline">
                   <span>Alpha card</span>
                   <strong>{selectedSignal.status}</strong>
@@ -610,7 +664,7 @@ export default function Dashboard() {
                 <div className="alpha-stats">
                   <div>
                     <span>Confidence</span>
-                    <strong>{selectedSignal.confidence}%</strong>
+                    <AnimatedNumber value={selectedSignal.confidence} suffix="%" />
                   </div>
                   <div>
                     <span>Outcome</span>
@@ -623,24 +677,24 @@ export default function Dashboard() {
                 </div>
               </section>
 
-              <section className="panel dossier-panel">
+              <section className="panel dossier-panel" data-reveal>
                 <div className="dossier-tabs" role="tablist" aria-label="Selected signal dossier">
-                  <button className={dossierTab === "evidence" ? "active" : ""} onClick={() => setDossierTab("evidence")}>
+                  <button className={dossierTab === "evidence" ? "active" : ""} onClick={() => setDossierTab("evidence")} data-magnetic>
                     <DatabaseZap size={15} />
                     Evidence
                   </button>
-                  <button className={dossierTab === "payload" ? "active" : ""} onClick={() => setDossierTab("payload")}>
+                  <button className={dossierTab === "payload" ? "active" : ""} onClick={() => setDossierTab("payload")} data-magnetic>
                     <FileCode2 size={15} />
                     Payload
                   </button>
-                  <button className={dossierTab === "timeline" ? "active" : ""} onClick={() => setDossierTab("timeline")}>
+                  <button className={dossierTab === "timeline" ? "active" : ""} onClick={() => setDossierTab("timeline")} data-magnetic>
                     <Timer size={15} />
                     Timeline
                   </button>
                 </div>
 
                 {dossierTab === "evidence" ? (
-                  <>
+                  <div data-tab-panel>
                     <div className="evidence-grid">
                       <EvidenceTile label="Source" value={formatDataSource(selectedSignal.evidence?.dataSource)} />
                       <EvidenceTile label="Observed" value={formatObservedAt(selectedSignal.evidence?.observedAt)} />
@@ -653,17 +707,17 @@ export default function Dashboard() {
                     </div>
                     <div className="evidence-links" aria-label="Evidence transaction links">
                       {proofLinks.map((link) => (
-                        <a href={link.href} target="_blank" rel="noreferrer" key={`${link.label}-${link.href}`}>
+                        <a href={link.href} target="_blank" rel="noreferrer" key={`${link.label}-${link.href}`} data-magnetic>
                           <ExternalLink size={13} />
                           {link.label}
                         </a>
                       ))}
                     </div>
-                  </>
+                  </div>
                 ) : null}
 
                 {dossierTab === "payload" ? (
-                  <div className="payload-panel">
+                  <div className="payload-panel" data-tab-panel>
                     <div className="payload-grid">
                       <EvidenceTile label="Agent" value={`#${selectedSignal.contract?.payload.agentId ?? "1"}`} />
                       <EvidenceTile label="Confidence" value={`${selectedSignal.contract?.payload.confidenceBps ?? selectedSignal.confidence * 100} bps`} />
@@ -675,7 +729,7 @@ export default function Dashboard() {
                 ) : null}
 
                 {dossierTab === "timeline" ? (
-                  <ol className="timeline">
+                  <ol className="timeline" data-tab-panel>
                     {events.map(([time, title, detail]) => (
                       <li key={`${time}-${title}`}>
                         <time>{time}</time>
@@ -832,10 +886,6 @@ function formatUnixTimeLeft(expiresAt: string) {
 function formatPnl(pnlBps: string) {
   const value = Number(pnlBps) / 100;
   return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
-}
-
-function formatSigned(value: number) {
-  return `${value >= 0 ? "+" : ""}${value}`;
 }
 
 function formatAccuracy(score: ChainStateResponse["score"]) {

@@ -1847,6 +1847,52 @@ a:focus-visible {
   will-change: transform, opacity;
 }
 
+.round-steps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  width: min(100%, 600px);
+  margin-top: 18px;
+}
+
+.round-steps span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 38px;
+  border: 1px solid rgba(252, 252, 252, 0.12);
+  border-radius: var(--radius);
+  background: rgba(252, 252, 252, 0.07);
+  color: #d7d7d2;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.round-steps span.active {
+  border-color: rgba(159, 245, 25, 0.42);
+  background: rgba(159, 245, 25, 0.14);
+  color: var(--mint);
+  box-shadow: 0 12px 32px rgba(159, 245, 25, 0.12);
+}
+
+.notice.running span,
+.notice.idle span {
+  background: #ffbd4a;
+  box-shadow: 0 0 0 6px rgba(255, 189, 74, 0.12), 0 0 28px rgba(255, 189, 74, 0.36);
+}
+
+.notice.ready span {
+  background: var(--mint);
+  box-shadow: 0 0 0 6px rgba(159, 245, 25, 0.12), 0 0 28px rgba(159, 245, 25, 0.5);
+}
+
+.notice.error span {
+  background: #ff6b5f;
+  box-shadow: 0 0 0 6px rgba(255, 107, 95, 0.14), 0 0 28px rgba(255, 107, 95, 0.38);
+}
+
 [data-hero-reveal],
 [data-reveal],
 [data-reveal-group] > *,
@@ -2027,6 +2073,10 @@ a:focus-visible {
   .rail-section,
   .dossier-tabs {
     grid-template-columns: 1fr;
+  }
+
+  .round-steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .score-ring {

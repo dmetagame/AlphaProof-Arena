@@ -62,6 +62,9 @@ type SignalEvidence = {
   observedAt?: string;
   sourceBlockRange?: string;
   outcomeBlockRange?: string;
+  commitBlock?: string;
+  roundStage?: string;
+  commitMode?: string;
   sourceTxCount?: number;
   outcomeTxCount?: number;
   uniqueWallets?: number;
@@ -115,6 +118,28 @@ type AgentScanResponse = {
     sourceTxs: string[];
   };
   contract: ContractPayload;
+};
+
+type ArenaRoundResponse = AgentScanResponse & {
+  warning?: string;
+  round: {
+    id: string;
+    status: "prepared" | "committed";
+    mode: "live-mantle-rpc" | "demo-fallback";
+    committed: boolean;
+    chainId: number;
+    agentId: string;
+    signalId?: string;
+    createdAt: string;
+    expiresAt?: string;
+    resolverEtaSeconds?: number;
+    commitTx?: string;
+    commitBlock?: string;
+    explorerUrl?: string;
+    signer?: string;
+    reason?: string;
+    nextStep?: string;
+  };
 };
 
 type ChainStateResponse = {
@@ -231,13 +256,6 @@ const initialSignals: Signal[] = [
   }
 ];
 
-const events = [
-  ["09:30", "Commit", "Bullish mETH signal written to Mantle."],
-  ["10:30", "Resolve", "Outcome moved +2.37%; reputation increased by 14."],
-  ["10:34", "Score", "Whale Flow Agent moved to rank 1."],
-  ["10:41", "Share", "Alpha Card generated for public voting."]
-] as const;
-
 const proofParticles = Array.from({ length: 18 }, (_, index) => index + 1);
 
 export default function Dashboard() {
@@ -250,7 +268,7 @@ export default function Dashboard() {
   const [selectedSignalId, setSelectedSignalId] = useState<string | null>(null);
   const [dossierTab, setDossierTab] = useState<DossierTab>("evidence");
   const [activeSection, setActiveSection] = useState("command");
-  const [notice, setNotice] = useState("Whale Flow Agent is ready to produce a Mantle commit payload.");
+  const [notice, setNotice] = useState("Whale Flow Agent is ready to start a live Mantle proof round.");
 
   useEffect(() => {
     let active = true;
@@ -296,11 +314,12 @@ export default function Dashboard() {
     [chainState]
   );
 
-  const committed = chainState ? Math.max(0, Number(chainState.nextSignalId) - 1) : chainSignals.length;
+  const optimisticCommitted = preparedSignals.filter((signal) => Boolean(signal.commitTx)).length;
+  const committed = (chainState ? Math.max(0, Number(chainState.nextSignalId) - 1) : chainSignals.length) + optimisticCommitted;
   const resolved = chainState
     ? Number(chainState.score.resolvedSignals)
     : chainSignals.filter((signal) => signal.status === "Resolved").length;
-  const pending = chainSignals.filter((signal) => signal.status === "Pending").length;
+  const pending = displaySignals.filter((signal) => signal.status === "Pending").length;
   const latest = displaySignals[0];
   const selectedSignal = displaySignals.find((signal) => signal.id === selectedSignalId) ?? latest ?? initialSignals[0];
   const avgConfidence = useMemo(
@@ -311,6 +330,7 @@ export default function Dashboard() {
   const accuracy = chainState ? formatAccuracy(chainState.score) : displayAgents[0].accuracy;
   const cumulativeBps = chainState ? Number(chainState.score.cumulativePnLBps) : 0;
   const proofLinks = getProofLinks(selectedSignal);
+  const timelineEvents = buildSignalTimeline(selectedSignal);
   const heroWords = displayAgents[0].name.split(" ");
   const networkDetail = chainStatus === "ready"
     ? `SignalRegistry ${shortAddress(chainState?.contracts.signalRegistry ?? signalRegistryAddress)}`
@@ -344,41 +364,25 @@ export default function Dashboard() {
   async function addSignal() {
     setScanStatus("running");
     setDossierTab("payload");
-    setNotice("Whale Flow Agent is reading live Mantle RPC data and preparing a transaction payload.");
+    setNotice("Whale Flow Agent is reading Mantle RPC data and opening a proof round.");
 
     try {
-      const response = await fetch("/api/agent-scan", { cache: "no-store" });
-      if (!response.ok) throw new Error("agent scan failed");
+      const response = await fetch("/api/arena-round", {
+        cache: "no-store",
+        method: "POST"
+      });
+      if (!response.ok) throw new Error("arena round failed");
 
-      const scan = await response.json() as AgentScanResponse;
-      const preparedId = `Prepared #${preparedSignals.length + 1}`;
-      setPreparedSignals((current) => [
-        {
-          id: preparedId,
-          agent: scan.signal.agentName,
-          target: scan.signal.targetSymbol,
-          direction: toTitleDirection(scan.signal.direction),
-          confidence: Math.round(scan.signal.confidenceBps / 100),
-          status: "Prepared",
-          result: "Ready to commit",
-          proof: shortenHash(scan.signal.explanationHash),
-          thesis: scan.signal.thesis,
-          expiresAt: scan.signal.expiresAt,
-          sourceDataHash: scan.signal.sourceDataHash,
-          explanationHash: scan.signal.explanationHash,
-          evidence: toPreparedEvidence(scan),
-          contract: scan.contract
-        },
-        ...current
-      ]);
-      setSelectedSignalId(preparedId);
+      const round = await response.json() as ArenaRoundResponse;
+      const signal = toRoundSignal(round, preparedSignals.length + 1);
+
+      setPreparedSignals((current) => [signal, ...current]);
+      setSelectedSignalId(signal.id);
       setScanStatus("ready");
-      setNotice(scan.dataSourceMode === "demo-fallback"
-        ? "Prepared fallback commitSignal payload. Live Mantle RPC was unavailable, so it is not counted on-chain."
-        : "Prepared commitSignal payload from live Mantle RPC data. It is not counted on-chain until submitted.");
+      setNotice(buildRoundNotice(round));
     } catch {
       setScanStatus("error");
-      setNotice("Agent scan failed locally. Keep the Next API route running and retry.");
+      setNotice("Arena round failed locally. Keep the Next API route running and retry.");
     }
   }
 
@@ -489,10 +493,28 @@ export default function Dashboard() {
                 <span>{accuracy} accuracy</span>
                 <span>{chainState ? shortAddress(chainState.agent.owner) : "Owner loading"}</span>
               </div>
+              <div className="round-steps" aria-label="Live arena round flow" data-hero-reveal>
+                <span className={scanStatus === "running" ? "active" : ""}>
+                  <ScanLine size={14} />
+                  Scan
+                </span>
+                <span className={scanStatus === "ready" ? "active" : ""}>
+                  <GitCommitHorizontal size={14} />
+                  Commit
+                </span>
+                <span>
+                  <Timer size={14} />
+                  Resolve
+                </span>
+                <span>
+                  <Trophy size={14} />
+                  Rank
+                </span>
+              </div>
               <div className="action-row" data-hero-reveal>
                 <button className="primary-btn" onClick={addSignal} disabled={scanStatus === "running"} data-magnetic>
                   {scanStatus === "running" ? <ScanLine size={17} className="scan-spinner" /> : <Play size={17} />}
-                  {scanStatus === "running" ? "Scanning" : "Run Scan"}
+                  {scanStatus === "running" ? "Starting" : "Start Round"}
                 </button>
                 <button className="secondary-btn" onClick={copyAlphaCard} data-magnetic>
                   <Copy size={17} />
@@ -510,7 +532,7 @@ export default function Dashboard() {
               <div className="xp-burst" aria-hidden="true">+120 XP</div>
               <div className="achievement-toast" aria-hidden="true">
                 <strong>Achievement unlocked</strong>
-                <span>Proof payload prepared</span>
+                <span>Round proof ready</span>
               </div>
             </div>
 
@@ -698,8 +720,10 @@ export default function Dashboard() {
                     <div className="evidence-grid">
                       <EvidenceTile label="Source" value={formatDataSource(selectedSignal.evidence?.dataSource)} />
                       <EvidenceTile label="Observed" value={formatObservedAt(selectedSignal.evidence?.observedAt)} />
+                      <EvidenceTile label="Round" value={selectedSignal.evidence?.roundStage ?? selectedSignal.status} />
+                      <EvidenceTile label="Mode" value={selectedSignal.evidence?.commitMode ?? "On-chain proof"} />
                       <EvidenceTile label="Source blocks" value={selectedSignal.evidence?.sourceBlockRange ?? "Hashed fixture"} />
-                      <EvidenceTile label="Outcome blocks" value={selectedSignal.evidence?.outcomeBlockRange ?? "Resolver scored"} />
+                      <EvidenceTile label="Commit block" value={selectedSignal.evidence?.commitBlock ?? selectedSignal.evidence?.outcomeBlockRange ?? "Resolver pending"} />
                       <EvidenceTile label="Source activity" value={formatActivity(selectedSignal.evidence?.sourceTxCount, selectedSignal.evidence?.uniqueWallets)} />
                       <EvidenceTile label="Outcome activity" value={formatActivity(selectedSignal.evidence?.outcomeTxCount, selectedSignal.evidence?.outcomeWallets)} />
                       <EvidenceTile label="Whale wallets" value={String(selectedSignal.evidence?.whaleWallets ?? 0)} />
@@ -730,12 +754,12 @@ export default function Dashboard() {
 
                 {dossierTab === "timeline" ? (
                   <ol className="timeline" data-tab-panel>
-                    {events.map(([time, title, detail]) => (
-                      <li key={`${time}-${title}`}>
-                        <time>{time}</time>
+                    {timelineEvents.map((event) => (
+                      <li key={`${event.time}-${event.title}`}>
+                        <time>{event.time}</time>
                         <div>
-                          <strong>{title}</strong>
-                          <span>{detail}</span>
+                          <strong>{event.title}</strong>
+                          <span>{event.detail}</span>
                         </div>
                       </li>
                     ))}
@@ -803,6 +827,58 @@ function toDashboardSignal(signal: ChainStateResponse["signals"][number]): Signa
   };
 }
 
+function toRoundSignal(round: ArenaRoundResponse, index: number): Signal {
+  const committed = round.round.committed && Boolean(round.round.commitTx);
+  const signalId = committed && round.round.signalId
+    ? `Signal #${round.round.signalId}`
+    : `Prepared #${index}`;
+  const expiresAt = round.round.expiresAt ?? round.signal.expiresAt;
+  const evidence = toPreparedEvidence(round);
+  evidence.roundStage = committed ? "Committed" : "Prepared";
+  evidence.commitMode = round.round.mode === "demo-fallback"
+    ? "Demo fallback"
+    : committed
+      ? "Auto-committed"
+      : "Prepared payload";
+  if (round.round.commitBlock) evidence.commitBlock = String(round.round.commitBlock);
+  evidence.scoreDelta = committed
+    ? `Resolver pending ${formatEta(round.round.resolverEtaSeconds)}`
+    : round.round.reason ?? "Commit payload ready";
+
+  return {
+    id: signalId,
+    agent: round.signal.agentName,
+    target: round.signal.targetSymbol,
+    direction: toTitleDirection(round.signal.direction),
+    confidence: Math.round(round.signal.confidenceBps / 100),
+    status: committed ? "Pending" : "Prepared",
+    result: committed ? formatUnixTimeLeft(round.contract.payload.expiresAt) : "Ready to commit",
+    proof: committed && round.round.commitTx
+      ? shortenHash(round.round.commitTx)
+      : shortenHash(round.signal.explanationHash),
+    proofUrl: round.round.explorerUrl ?? (round.round.commitTx ? txUrl(round.round.commitTx) : undefined),
+    thesis: round.signal.thesis,
+    expiresAt,
+    sourceDataHash: round.signal.sourceDataHash,
+    explanationHash: round.signal.explanationHash,
+    commitTx: round.round.commitTx,
+    evidence,
+    contract: round.contract
+  };
+}
+
+function buildRoundNotice(round: ArenaRoundResponse) {
+  if (round.round.committed && round.round.signalId) {
+    return `Committed Signal #${round.round.signalId} on Mantle Sepolia. Resolver opens ${formatEta(round.round.resolverEtaSeconds)}.`;
+  }
+
+  if (round.round.mode === "demo-fallback") {
+    return `Prepared fallback payload because live Mantle RPC was unavailable: ${round.round.reason ?? round.warning ?? "retry later"}.`;
+  }
+
+  return `Prepared a live Mantle payload. ${round.round.reason ?? "Enable server autocommit to write it on-chain from the demo."}`;
+}
+
 function toPreparedEvidence(scan: AgentScanResponse): SignalEvidence {
   const sourceBlockRange = scan.observation.fromBlock && scan.observation.toBlock
     ? `${scan.observation.fromBlock}-${scan.observation.toBlock}`
@@ -819,6 +895,47 @@ function toPreparedEvidence(scan: AgentScanResponse): SignalEvidence {
     averageTransferUsd: scan.observation.averageTransferUsd,
     sourceTxs: scan.signal.sourceTxs.length > 0 ? scan.signal.sourceTxs : scan.observation.sourceTxs
   };
+}
+
+function buildSignalTimeline(signal: Signal) {
+  const observedAt = signal.evidence?.observedAt;
+  const blockRange = signal.evidence?.sourceBlockRange ?? "hashed source data";
+  const events = [
+    {
+      time: formatTimelineTime(observedAt),
+      title: "Scan",
+      detail: `${formatDataSource(signal.evidence?.dataSource)} captured ${blockRange}.`
+    },
+    {
+      time: signal.commitTx ? "Chain" : "Ready",
+      title: signal.commitTx ? "Commit" : "Payload",
+      detail: signal.commitTx
+        ? `Signal proof written to Mantle in ${shortenHash(signal.commitTx)}.`
+        : `commitSignal payload generated with ${shortenHash(signal.explanationHash ?? initialContract.payload.explanationHash)}.`
+    }
+  ];
+
+  if (signal.status === "Resolved") {
+    events.push({
+      time: "Score",
+      title: "Resolve",
+      detail: `Outcome scored ${signal.result}; reputation updated on-chain.`
+    });
+  } else {
+    events.push({
+      time: "Expiry",
+      title: "Resolve",
+      detail: `${signal.result} before the resolver can finalize the round.`
+    });
+  }
+
+  events.push({
+    time: "Share",
+    title: "Alpha Card",
+    detail: `${signal.target} ${signal.direction.toLowerCase()} proof is ready for community voting.`
+  });
+
+  return events;
 }
 
 function getProofLinks(signal: Signal) {
@@ -875,6 +992,29 @@ function formatActivity(txCount?: number, walletCount?: number) {
   if (typeof txCount !== "number") return "Committed hash";
   if (typeof walletCount !== "number") return `${txCount} txs`;
   return `${txCount} txs / ${walletCount} wallets`;
+}
+
+function formatEta(seconds?: number) {
+  if (typeof seconds !== "number" || seconds <= 0) return "now";
+  if (seconds < 60) return `in ${seconds}s`;
+
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `in ${minutes}m`;
+
+  const hours = Math.round(minutes / 60);
+  return `in ${hours}h`;
+}
+
+function formatTimelineTime(value?: string) {
+  if (!value) return "Live";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Live";
+
+  return date.toLocaleTimeString("en-US", {
+    hour: "2-digit",
+    minute: "2-digit"
+  });
 }
 
 function formatUnixTimeLeft(expiresAt: string) {

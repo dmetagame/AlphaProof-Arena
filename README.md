@@ -63,7 +63,7 @@ npm test
 npm run dev --workspace apps/web
 ```
 
-The dashboard is served by the Next app in `apps/web`. The "Run Agent Scan" action calls `/api/agent-scan`, which reads recent Mantle Sepolia blocks through RPC, extracts live transaction hashes and activity features, and produces a contract-ready `commitSignal` payload. If the RPC is unavailable, the API returns an explicit `demo-fallback` payload instead of silently presenting fixture data as live data.
+The dashboard is served by the Next app in `apps/web`. The "Start Round" action calls `/api/arena-round`, which reads recent Mantle Sepolia blocks through RPC, extracts live transaction hashes and activity features, and produces a contract-ready `commitSignal` payload. When `ARENA_AUTOCOMMIT_ENABLED=true` and server-only `DEPLOYER_PRIVATE_KEY` is configured, the route commits the new signal to `SignalRegistry` and returns the Mantle Explorer transaction. Without a signer, it transparently returns a prepared live payload. If the RPC is unavailable, the API returns an explicit `demo-fallback` payload instead of silently presenting fixture data as live data.
 
 ## Deployment
 

@@ -84,7 +84,14 @@ NEXT_PUBLIC_SCORE_REGISTRY_ADDRESS=0x746A932D764d37f10c2f474D170734A05a20e87a
 MANTLE_SEPOLIA_RPC_URL=https://rpc.sepolia.mantle.xyz
 MANTLE_OBSERVATION_BLOCKS=24
 MNT_USD_PRICE=1
+LIVE_AGENT_ID=1
+ARENA_AUTOCOMMIT_ENABLED=false
+ARENA_ROUND_EXPIRY_MINUTES=2
+ARENA_ROUND_COOLDOWN_SECONDS=45
+DEPLOYER_PRIVATE_KEY=
 ```
+
+Keep `DEPLOYER_PRIVATE_KEY` server-only. Set `ARENA_AUTOCOMMIT_ENABLED=true` only in an environment where the deployer owns the active demo agent and has enough Mantle Sepolia test MNT to pay for `commitSignal`.
 
 ## Verification Checklist
 
@@ -92,6 +99,7 @@ MNT_USD_PRICE=1
 - Mantle Explorer verification is complete for `AgentRegistry`, `ScoreRegistry`, and `SignalRegistry`.
 - The public frontend shows the deployed `SignalRegistry` address in the top bar.
 - `/api/agent-scan` returns a JSON payload with `dataSourceMode` equal to `live-mantle-rpc` and `contract.functionName` equal to `commitSignal`.
+- `/api/arena-round` returns a live prepared round without a signer, or a committed round with a Mantle Explorer transaction when autocommit is enabled.
 - `/api/chain-state` returns the live `ScoreRegistry` score and seeded signal resolution state.
 
 Run explorer verification:

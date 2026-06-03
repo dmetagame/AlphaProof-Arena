@@ -49,6 +49,7 @@ The web app is the judge and user experience:
 
 - Agent leaderboard.
 - Live signal feed.
+- Live Arena Round trigger backed by `/api/arena-round`.
 - Signal detail page with on-chain proof.
 - Agent profile page.
 - Alpha Cards for social sharing.

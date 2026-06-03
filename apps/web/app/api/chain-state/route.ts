@@ -37,20 +37,54 @@ const seededSignalMetadata: Record<string, {
   thesis: string;
   commitTx: `0x${string}`;
   resolveTx?: `0x${string}`;
+  evidence: {
+    dataSource: string;
+    observedAt?: string;
+    sourceBlockRange?: string;
+    outcomeBlockRange?: string;
+    sourceTxCount?: number;
+    outcomeTxCount?: number;
+    uniqueWallets?: number;
+    outcomeWallets?: number;
+    whaleWallets?: number;
+    netFlowUsd?: number;
+    averageTransferUsd?: number;
+    scoreDelta?: string;
+    sourceTxs?: `0x${string}`[];
+  };
 }> = {
   "1": {
     targetSymbol: "mETH",
     direction: "bullish",
     thesis: "Whale Flow Agent detected $1,842,500 net inflow into mETH across 38 wallets, including 7 whale wallets.",
     commitTx: "0xd82437582404025f72d3c92bcb8cf75ccff5c07e804bd8bbbd6955f695b817cc",
-    resolveTx: "0x546e1a4e5ab7a2177d5643ae31df352103e7a3adf8d70f30b19489e452b7b72e"
+    resolveTx: "0x546e1a4e5ab7a2177d5643ae31df352103e7a3adf8d70f30b19489e452b7b72e",
+    evidence: {
+      dataSource: "Mantle mETH whale-flow fixture",
+      sourceTxCount: 38,
+      uniqueWallets: 38,
+      whaleWallets: 7,
+      netFlowUsd: 1_842_500,
+      scoreDelta: "+14 reputation / +237 bps"
+    }
   },
   "2": {
     targetSymbol: "MNT",
     direction: "bullish",
     thesis: "Whale Flow Agent scanned live Mantle Sepolia blocks 39339173-39339196 and found 29 transactions across 12 wallets. The outcome window produced 28 transactions across 10 wallets, keeping activity above the active-network threshold.",
     commitTx: "0x253713fce55a69378e6ed030d01358590b60a3dabfd1afe8f7a5bb002b52f7e3",
-    resolveTx: "0xa6731a1462f5c728ca636e431b32de65c903413eb9955f18168f742ecc1e1fab"
+    resolveTx: "0xa6731a1462f5c728ca636e431b32de65c903413eb9955f18168f742ecc1e1fab",
+    evidence: {
+      dataSource: "Mantle Sepolia RPC",
+      observedAt: "2026-05-31T09:44:37.000Z",
+      sourceBlockRange: "39339173-39339196",
+      outcomeBlockRange: "39339261-39339284",
+      sourceTxCount: 29,
+      outcomeTxCount: 28,
+      uniqueWallets: 12,
+      outcomeWallets: 10,
+      scoreDelta: "+20 reputation / +2867 bps"
+    }
   }
 };
 
@@ -107,7 +141,8 @@ export async function GET() {
         pnlBps: signal.pnlBps,
         thesis: metadata?.thesis,
         commitTx: metadata?.commitTx,
-        resolveTx: metadata?.resolveTx
+        resolveTx: metadata?.resolveTx,
+        evidence: metadata?.evidence
       });
     }
 

@@ -333,6 +333,7 @@ button:disabled {
 
 .stack {
   display: grid;
+  align-content: start;
   gap: 18px;
 }
 
@@ -424,7 +425,7 @@ button:disabled {
 }
 
 .signal-row {
-  grid-template-columns: minmax(0, 1fr) 92px 82px 110px;
+  grid-template-columns: minmax(0, 1fr) 92px 82px 110px 88px;
 }
 
 .signal-row.pending {
@@ -433,6 +434,11 @@ button:disabled {
 
 .signal-row.resolved {
   border-color: #bfdfd2;
+}
+
+.signal-row.selected {
+  border-color: var(--blue);
+  box-shadow: inset 0 0 0 1px var(--blue);
 }
 
 .confidence {
@@ -452,6 +458,21 @@ button:disabled {
   color: var(--blue);
   font-weight: 800;
   text-decoration: none;
+}
+
+.inspect-btn {
+  min-height: 32px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: #263243;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.signal-row.selected .inspect-btn {
+  border-color: var(--blue);
+  color: var(--blue);
 }
 
 .alpha-card {
@@ -505,13 +526,15 @@ button:disabled {
   word-break: break-word;
 }
 
-.payload-grid {
+.payload-grid,
+.evidence-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
 
-.payload-grid div {
+.payload-grid div,
+.evidence-grid div {
   min-width: 0;
   padding: 10px;
   border: 1px solid var(--line);
@@ -519,7 +542,8 @@ button:disabled {
   background: #fff;
 }
 
-.payload-grid span {
+.payload-grid span,
+.evidence-grid span {
   display: block;
   margin-bottom: 5px;
   color: var(--muted);
@@ -527,10 +551,30 @@ button:disabled {
   font-weight: 700;
 }
 
-.payload-grid strong {
+.payload-grid strong,
+.evidence-grid strong {
   display: block;
   overflow-wrap: anywhere;
   font-size: 13px;
+}
+
+.evidence-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.evidence-links a {
+  min-height: 30px;
+  padding: 6px 9px;
+  border: 1px solid #c9d7ee;
+  border-radius: 8px;
+  background: var(--blue-soft);
+  color: var(--blue);
+  font-size: 12px;
+  font-weight: 800;
+  text-decoration: none;
 }
 
 .timeline {
@@ -608,7 +652,8 @@ button:disabled {
   .agent-row,
   .signal-row,
   .alpha-card dl,
-  .payload-grid {
+  .payload-grid,
+  .evidence-grid {
     grid-template-columns: 1fr;
   }
 

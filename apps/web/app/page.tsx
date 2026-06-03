@@ -25,7 +25,26 @@ type Signal = {
   expiresAt?: string;
   sourceDataHash?: string;
   explanationHash?: string;
+  commitTx?: string;
+  resolveTx?: string;
+  evidence?: SignalEvidence;
   contract?: ContractPayload;
+};
+
+type SignalEvidence = {
+  dataSource: string;
+  observedAt?: string;
+  sourceBlockRange?: string;
+  outcomeBlockRange?: string;
+  sourceTxCount?: number;
+  outcomeTxCount?: number;
+  uniqueWallets?: number;
+  outcomeWallets?: number;
+  whaleWallets?: number;
+  netFlowUsd?: number;
+  averageTransferUsd?: number;
+  scoreDelta?: string;
+  sourceTxs?: string[];
 };
 
 type ContractPayload = {
@@ -53,6 +72,21 @@ type AgentScanResponse = {
     thesis: string;
     sourceDataHash: string;
     explanationHash: string;
+    sourceTxs: string[];
+    features: Record<string, string | number | boolean>;
+  };
+  observation: {
+    observedAt: string;
+    dataSource?: string;
+    fromBlock?: number;
+    toBlock?: number;
+    windowMinutes: number;
+    netFlowUsd: number;
+    uniqueWallets: number;
+    whaleWallets: number;
+    averageTransferUsd: number;
+    txCount: number;
+    sourceTxs: string[];
   };
   contract: ContractPayload;
 };
@@ -99,6 +133,7 @@ type ChainStateResponse = {
     thesis?: string;
     commitTx?: string;
     resolveTx?: string;
+    evidence?: SignalEvidence;
   }>;
 };
 
@@ -155,6 +190,15 @@ const initialSignals: Signal[] = [
     expiresAt: "2026-05-13T20:33:07.000Z",
     sourceDataHash: initialContract.payload.sourceDataHash,
     explanationHash: initialContract.payload.explanationHash,
+    commitTx: seededCommitTx,
+    evidence: {
+      dataSource: "Mantle mETH whale-flow fixture",
+      sourceTxCount: 38,
+      uniqueWallets: 38,
+      whaleWallets: 7,
+      netFlowUsd: 1_842_500,
+      scoreDelta: "+14 reputation / +237 bps"
+    },
     contract: initialContract
   }
 ];
@@ -171,6 +215,7 @@ export default function Dashboard() {
   const [chainState, setChainState] = useState<ChainStateResponse | null>(null);
   const [chainStatus, setChainStatus] = useState<"loading" | "ready" | "error">("loading");
   const [scanStatus, setScanStatus] = useState<"idle" | "running" | "ready" | "error">("idle");
+  const [selectedSignalId, setSelectedSignalId] = useState<string | null>(null);
   const [notice, setNotice] = useState("Whale Flow Agent is ready to produce a Mantle commit payload.");
 
   useEffect(() => {
@@ -197,7 +242,7 @@ export default function Dashboard() {
   }, []);
 
   const chainSignals = useMemo(
-    () => chainState?.signals.map(toDashboardSignal) ?? initialSignals,
+    () => chainState?.signals.map(toDashboardSignal).reverse() ?? initialSignals,
     [chainState]
   );
   const displaySignals = useMemo(
@@ -222,6 +267,7 @@ export default function Dashboard() {
     : chainSignals.filter((signal) => signal.status === "Resolved").length;
   const pending = chainSignals.filter((signal) => signal.status === "Pending").length;
   const latest = displaySignals[0];
+  const selectedSignal = displaySignals.find((signal) => signal.id === selectedSignalId) ?? latest ?? initialSignals[0];
   const avgConfidence = useMemo(
     () => Math.round(displaySignals.reduce((sum, signal) => sum + signal.confidence, 0) / displaySignals.length),
     [displaySignals]
@@ -233,18 +279,25 @@ export default function Dashboard() {
       ? "Reading live chain state"
       : "Live RPC unavailable";
 
+  useEffect(() => {
+    if (selectedSignalId && !displaySignals.some((signal) => signal.id === selectedSignalId)) {
+      setSelectedSignalId(null);
+    }
+  }, [displaySignals, selectedSignalId]);
+
   async function addSignal() {
     setScanStatus("running");
-    setNotice("Whale Flow Agent is reading Mantle demo flow data and preparing a transaction payload.");
+    setNotice("Whale Flow Agent is reading live Mantle RPC data and preparing a transaction payload.");
 
     try {
       const response = await fetch("/api/agent-scan", { cache: "no-store" });
       if (!response.ok) throw new Error("agent scan failed");
 
       const scan = await response.json() as AgentScanResponse;
+      const preparedId = `Prepared #${preparedSignals.length + 1}`;
       setPreparedSignals((current) => [
         {
-          id: `Prepared #${current.length + 1}`,
+          id: preparedId,
           agent: scan.signal.agentName,
           target: scan.signal.targetSymbol,
           direction: toTitleDirection(scan.signal.direction),
@@ -256,10 +309,12 @@ export default function Dashboard() {
           expiresAt: scan.signal.expiresAt,
           sourceDataHash: scan.signal.sourceDataHash,
           explanationHash: scan.signal.explanationHash,
+          evidence: toPreparedEvidence(scan),
           contract: scan.contract
         },
         ...current
       ]);
+      setSelectedSignalId(preparedId);
       setScanStatus("ready");
       setNotice(scan.dataSourceMode === "demo-fallback"
         ? "Prepared a fallback commitSignal payload. Live Mantle RPC was unavailable, so it is not counted as on-chain."
@@ -273,10 +328,10 @@ export default function Dashboard() {
   async function copyAlphaCard() {
     const lines = [
       "AlphaProof Arena",
-      `${latest.agent} called ${latest.target} ${latest.direction.toLowerCase()} with ${latest.confidence}% confidence.`,
-      `Status: ${latest.status}`,
-      `Proof: ${latest.proof}`,
-      latest.thesis ? `Thesis: ${latest.thesis}` : ""
+      `${selectedSignal.agent} called ${selectedSignal.target} ${selectedSignal.direction.toLowerCase()} with ${selectedSignal.confidence}% confidence.`,
+      `Status: ${selectedSignal.status}`,
+      `Proof: ${selectedSignal.proof}`,
+      selectedSignal.thesis ? `Thesis: ${selectedSignal.thesis}` : ""
     ].filter(Boolean);
 
     try {
@@ -397,7 +452,10 @@ export default function Dashboard() {
                 </div>
                 <div className="signals">
                   {displaySignals.map((signal) => (
-                    <article className={`signal-row ${signal.status.toLowerCase()}`} key={signal.id}>
+                    <article
+                      className={`signal-row ${signal.status.toLowerCase()} ${selectedSignal.id === signal.id ? "selected" : ""}`}
+                      key={signal.id}
+                    >
                       <div className="signal-main">
                         <strong>{signal.id} · {signal.target} · {signal.direction}</strong>
                         <span>{signal.agent}</span>
@@ -410,6 +468,7 @@ export default function Dashboard() {
                       </div>
                       <span className={signal.status === "Resolved" ? "pill green" : "pill amber"}>{signal.status}</span>
                       <a className="proof-link" href={signal.proofUrl ?? `${explorerBaseUrl}/address/${signalRegistryAddress}`} target="_blank" rel="noreferrer">{signal.proof}</a>
+                      <button className="inspect-btn" onClick={() => setSelectedSignalId(signal.id)}>Inspect</button>
                     </article>
                   ))}
                 </div>
@@ -419,52 +478,104 @@ export default function Dashboard() {
             <aside className="stack">
               <section className="alpha-card">
                 <span className="muted">Shareable Alpha Card</span>
-                <h3>{latest.agent} called {latest.target} {latest.direction.toLowerCase()}</h3>
+                <h3>{selectedSignal.agent} called {selectedSignal.target} {selectedSignal.direction.toLowerCase()}</h3>
                 <p className="muted">Committed before expiry. Resolved score updates agent reputation on Mantle.</p>
                 <dl>
                   <div>
                     <dt>Confidence</dt>
-                    <dd>{latest.confidence}%</dd>
+                    <dd>{selectedSignal.confidence}%</dd>
                   </div>
                   <div>
                     <dt>Result</dt>
-                    <dd>{latest.result}</dd>
+                    <dd>{selectedSignal.result}</dd>
                   </div>
                   <div>
                     <dt>Status</dt>
-                    <dd>{latest.status}</dd>
+                    <dd>{selectedSignal.status}</dd>
                   </div>
                   <div>
                     <dt>Proof</dt>
-                    <dd>{latest.proof}</dd>
+                    <dd>{selectedSignal.proof}</dd>
                   </div>
                 </dl>
+              </section>
+
+              <section className="panel evidence-panel">
+                <div className="panel-head">
+                  <h3>Evidence Ledger</h3>
+                  <span className="pill green">{selectedSignal.status}</span>
+                </div>
+                <div className="evidence-grid">
+                  <div>
+                    <span>Source</span>
+                    <strong>{formatDataSource(selectedSignal.evidence?.dataSource)}</strong>
+                  </div>
+                  <div>
+                    <span>Observed</span>
+                    <strong>{formatObservedAt(selectedSignal.evidence?.observedAt)}</strong>
+                  </div>
+                  <div>
+                    <span>Source Blocks</span>
+                    <strong>{selectedSignal.evidence?.sourceBlockRange ?? "Hashed fixture"}</strong>
+                  </div>
+                  <div>
+                    <span>Outcome Blocks</span>
+                    <strong>{selectedSignal.evidence?.outcomeBlockRange ?? "Resolver scored"}</strong>
+                  </div>
+                  <div>
+                    <span>Source Activity</span>
+                    <strong>{formatActivity(selectedSignal.evidence?.sourceTxCount, selectedSignal.evidence?.uniqueWallets)}</strong>
+                  </div>
+                  <div>
+                    <span>Outcome Activity</span>
+                    <strong>{formatActivity(selectedSignal.evidence?.outcomeTxCount, selectedSignal.evidence?.outcomeWallets)}</strong>
+                  </div>
+                  <div>
+                    <span>Whale Wallets</span>
+                    <strong>{selectedSignal.evidence?.whaleWallets ?? 0}</strong>
+                  </div>
+                  <div>
+                    <span>Score Impact</span>
+                    <strong>{selectedSignal.evidence?.scoreDelta ?? selectedSignal.result}</strong>
+                  </div>
+                </div>
+                <div className="evidence-links" aria-label="Evidence transaction links">
+                  {selectedSignal.commitTx ? (
+                    <a href={txUrl(selectedSignal.commitTx)} target="_blank" rel="noreferrer">Commit {shortenHash(selectedSignal.commitTx)}</a>
+                  ) : null}
+                  {selectedSignal.resolveTx ? (
+                    <a href={txUrl(selectedSignal.resolveTx)} target="_blank" rel="noreferrer">Resolve {shortenHash(selectedSignal.resolveTx)}</a>
+                  ) : null}
+                  {(selectedSignal.evidence?.sourceTxs ?? []).slice(0, 4).map((tx) => (
+                    <a href={txUrl(tx)} target="_blank" rel="noreferrer" key={tx}>Source {shortenHash(tx)}</a>
+                  ))}
+                </div>
               </section>
 
               <section className="panel payload-panel">
                 <div className="panel-head">
                   <h3>Commit Payload</h3>
-                  <span className="pill blue">{latest.contract?.functionName ?? "commitSignal"}</span>
+                  <span className="pill blue">{selectedSignal.contract?.functionName ?? "commitSignal"}</span>
                 </div>
                 <div className="payload-grid">
                   <div>
                     <span>Agent</span>
-                    <strong>#{latest.contract?.payload.agentId ?? "1"}</strong>
+                    <strong>#{selectedSignal.contract?.payload.agentId ?? "1"}</strong>
                   </div>
                   <div>
                     <span>Confidence</span>
-                    <strong>{latest.contract?.payload.confidenceBps ?? latest.confidence * 100} bps</strong>
+                    <strong>{selectedSignal.contract?.payload.confidenceBps ?? selectedSignal.confidence * 100} bps</strong>
                   </div>
                   <div>
                     <span>Source Hash</span>
-                    <strong>{shortenHash(latest.sourceDataHash ?? initialContract.payload.sourceDataHash)}</strong>
+                    <strong>{shortenHash(selectedSignal.sourceDataHash ?? initialContract.payload.sourceDataHash)}</strong>
                   </div>
                   <div>
                     <span>Explanation</span>
-                    <strong>{shortenHash(latest.explanationHash ?? initialContract.payload.explanationHash)}</strong>
+                    <strong>{shortenHash(selectedSignal.explanationHash ?? initialContract.payload.explanationHash)}</strong>
                   </div>
                 </div>
-                <code>{JSON.stringify(latest.contract?.args ?? initialContract.args, null, 2)}</code>
+                <code>{JSON.stringify(selectedSignal.contract?.args ?? initialContract.args, null, 2)}</code>
               </section>
 
               <section className="panel">
@@ -509,6 +620,9 @@ function toDashboardSignal(signal: ChainStateResponse["signals"][number]): Signa
     expiresAt: new Date(Number(signal.expiresAt) * 1000).toISOString(),
     sourceDataHash: signal.sourceDataHash,
     explanationHash: signal.explanationHash,
+    commitTx: signal.commitTx,
+    resolveTx: signal.resolveTx,
+    evidence: signal.evidence,
     contract: {
       functionName: "commitSignal",
       payload: {
@@ -533,6 +647,24 @@ function toDashboardSignal(signal: ChainStateResponse["signals"][number]): Signa
   };
 }
 
+function toPreparedEvidence(scan: AgentScanResponse): SignalEvidence {
+  const sourceBlockRange = scan.observation.fromBlock && scan.observation.toBlock
+    ? `${scan.observation.fromBlock}-${scan.observation.toBlock}`
+    : undefined;
+
+  return {
+    dataSource: scan.observation.dataSource ?? String(scan.signal.features.dataSource ?? "live-agent-scan"),
+    observedAt: scan.observation.observedAt,
+    sourceBlockRange,
+    sourceTxCount: scan.observation.txCount,
+    uniqueWallets: scan.observation.uniqueWallets,
+    whaleWallets: scan.observation.whaleWallets,
+    netFlowUsd: scan.observation.netFlowUsd,
+    averageTransferUsd: scan.observation.averageTransferUsd,
+    sourceTxs: scan.signal.sourceTxs.length > 0 ? scan.signal.sourceTxs : scan.observation.sourceTxs
+  };
+}
+
 function toTitleDirection(direction: AgentScanResponse["signal"]["direction"]): Signal["direction"] {
   if (direction === "bullish") return "Bullish";
   if (direction === "bearish") return "Bearish";
@@ -547,9 +679,34 @@ function shortAddress(address: string) {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 
-function formatTimeLeft(expiresAt: string) {
-  const minutes = Math.max(1, Math.round((Date.parse(expiresAt) - Date.now()) / 60_000));
-  return `${minutes}m left`;
+function txUrl(tx: string) {
+  return `${explorerBaseUrl}/tx/${tx}`;
+}
+
+function formatDataSource(dataSource?: string) {
+  if (!dataSource) return "Mantle proof hash";
+  if (dataSource === "mantle-sepolia-rpc-native-transfers") return "Mantle Sepolia RPC";
+  return dataSource;
+}
+
+function formatObservedAt(value?: string) {
+  if (!value) return "On-chain";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "On-chain";
+
+  return date.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+}
+
+function formatActivity(txCount?: number, walletCount?: number) {
+  if (typeof txCount !== "number") return "Committed hash";
+  if (typeof walletCount !== "number") return `${txCount} txs`;
+  return `${txCount} txs / ${walletCount} wallets`;
 }
 
 function formatUnixTimeLeft(expiresAt: string) {

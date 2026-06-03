@@ -1,5 +1,24 @@
 "use client";
 
+import {
+  Activity,
+  ArrowUpRight,
+  BadgeCheck,
+  BarChart3,
+  Copy,
+  DatabaseZap,
+  ExternalLink,
+  FileCode2,
+  GitCommitHorizontal,
+  Layers3,
+  Play,
+  Radio,
+  Radar,
+  ScanLine,
+  ShieldCheck,
+  Timer,
+  Trophy
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 type Agent = {
@@ -137,6 +156,8 @@ type ChainStateResponse = {
   }>;
 };
 
+type DossierTab = "evidence" | "payload" | "timeline";
+
 const initialContract: ContractPayload = {
   functionName: "commitSignal",
   payload: {
@@ -168,7 +189,7 @@ const agents: Agent[] = [
   {
     rank: 1,
     name: "Whale Flow Agent",
-    focus: "mETH accumulation clusters",
+    focus: "MNT and mETH activity windows",
     accuracy: "0.0%",
     reputation: 0,
     spark: [38, 44, 51, 48, 66, 72, 83]
@@ -204,10 +225,10 @@ const initialSignals: Signal[] = [
 ];
 
 const events = [
-  ["09:30", "Signal committed", "Whale Flow Agent committed a bullish mETH signal."],
-  ["10:30", "Signal resolved", "Outcome moved +2.37%; reputation increased by 14."],
-  ["10:34", "Leaderboard updated", "Whale Flow Agent moved to rank 1."],
-  ["10:41", "Alpha Card shared", "Public card generated for community voting."]
+  ["09:30", "Commit", "Bullish mETH signal written to Mantle."],
+  ["10:30", "Resolve", "Outcome moved +2.37%; reputation increased by 14."],
+  ["10:34", "Score", "Whale Flow Agent moved to rank 1."],
+  ["10:41", "Share", "Alpha Card generated for public voting."]
 ] as const;
 
 export default function Dashboard() {
@@ -216,6 +237,7 @@ export default function Dashboard() {
   const [chainStatus, setChainStatus] = useState<"loading" | "ready" | "error">("loading");
   const [scanStatus, setScanStatus] = useState<"idle" | "running" | "ready" | "error">("idle");
   const [selectedSignalId, setSelectedSignalId] = useState<string | null>(null);
+  const [dossierTab, setDossierTab] = useState<DossierTab>("evidence");
   const [notice, setNotice] = useState("Whale Flow Agent is ready to produce a Mantle commit payload.");
 
   useEffect(() => {
@@ -261,6 +283,7 @@ export default function Dashboard() {
     }),
     [chainState]
   );
+
   const committed = chainState ? Math.max(0, Number(chainState.nextSignalId) - 1) : chainSignals.length;
   const resolved = chainState
     ? Number(chainState.score.resolvedSignals)
@@ -273,6 +296,9 @@ export default function Dashboard() {
     [displaySignals]
   );
   const topReputation = chainState ? Number(chainState.score.reputation) : agents[0].reputation;
+  const accuracy = chainState ? formatAccuracy(chainState.score) : displayAgents[0].accuracy;
+  const cumulativeBps = chainState ? Number(chainState.score.cumulativePnLBps) : 0;
+  const proofLinks = getProofLinks(selectedSignal);
   const networkDetail = chainStatus === "ready"
     ? `SignalRegistry ${shortAddress(chainState?.contracts.signalRegistry ?? signalRegistryAddress)}`
     : chainStatus === "loading"
@@ -287,6 +313,7 @@ export default function Dashboard() {
 
   async function addSignal() {
     setScanStatus("running");
+    setDossierTab("payload");
     setNotice("Whale Flow Agent is reading live Mantle RPC data and preparing a transaction payload.");
 
     try {
@@ -317,8 +344,8 @@ export default function Dashboard() {
       setSelectedSignalId(preparedId);
       setScanStatus("ready");
       setNotice(scan.dataSourceMode === "demo-fallback"
-        ? "Prepared a fallback commitSignal payload. Live Mantle RPC was unavailable, so it is not counted as on-chain."
-        : "Prepared a commitSignal payload from live Mantle RPC data. It is not counted as on-chain until submitted.");
+        ? "Prepared fallback commitSignal payload. Live Mantle RPC was unavailable, so it is not counted on-chain."
+        : "Prepared commitSignal payload from live Mantle RPC data. It is not counted on-chain until submitted.");
     } catch {
       setScanStatus("error");
       setNotice("Agent scan failed locally. Keep the Next API route running and retry.");
@@ -343,263 +370,338 @@ export default function Dashboard() {
   }
 
   return (
-    <main className="shell">
+    <main className="app-shell">
       <header className="topbar">
         <div className="brand">
-          <div className="mark">AP</div>
+          <div className="mark">
+            <Radar size={18} />
+          </div>
           <div>
             <h1>AlphaProof Arena</h1>
             <span>AI Alpha & Data</span>
           </div>
         </div>
-        <div className="network">
-          <span className="status-dot" />
-          <strong>Mantle Sepolia</strong>
-          <span>{networkDetail}</span>
+        <div className="network-cluster">
+          <div className={`chain-chip ${chainStatus}`}>
+            <Radio size={15} />
+            <strong>Mantle Sepolia</strong>
+            <span>{networkDetail}</span>
+          </div>
+          <a className="top-link" href={`${explorerBaseUrl}/address/${signalRegistryAddress}`} target="_blank" rel="noreferrer">
+            <ExternalLink size={14} />
+            Explorer
+          </a>
         </div>
       </header>
 
       <div className="workspace">
-        <aside className="sidebar">
-          <p className="nav-label">Arena</p>
-          <ul className="nav-list">
-            <li className="active">Dashboard <span className="pill blue">{displaySignals.length}</span></li>
-            <li>Agents <span className="pill">{displayAgents.length}</span></li>
-            <li>Signals <span className="pill green">{resolved}</span></li>
-            <li>Alpha Cards <span className="pill amber">Live</span></li>
-          </ul>
+        <aside className="side-rail">
+          <div className="rail-section">
+            <span className="rail-label">Arena</span>
+            <button className="rail-item active">
+              <Activity size={16} />
+              <span>Command</span>
+              <strong>{displaySignals.length}</strong>
+            </button>
+            <button className="rail-item">
+              <ShieldCheck size={16} />
+              <span>Agents</span>
+              <strong>{displayAgents.length}</strong>
+            </button>
+            <button className="rail-item">
+              <GitCommitHorizontal size={16} />
+              <span>Signals</span>
+              <strong>{resolved}</strong>
+            </button>
+            <button className="rail-item">
+              <Trophy size={16} />
+              <span>Score</span>
+              <strong>{topReputation}</strong>
+            </button>
+          </div>
 
-          <div className="side-panel">
-            <strong>Deployment Award</strong>
-            <p>Verified Mantle contracts, public frontend, callable AI signal flow, and live score reads.</p>
+          <div className="rail-card">
+            <span>Deployment award</span>
+            <strong>Verified contracts, public demo, AI callable flow</strong>
+            <div className="rail-meter">
+              <i style={{ width: "100%" }} />
+            </div>
           </div>
         </aside>
 
         <section className="main">
-          <div className="hero-band">
-            <section className="headline">
-              <p className="eyebrow">Verifiable AI Alpha</p>
-              <h2>Agents earn reputation only when their Mantle signals resolve correctly.</h2>
-              <p>
-                Every committed signal is timestamped on Mantle before expiry, then scored after the outcome window using the resolver engine.
-              </p>
+          <section className="command-center">
+            <div className="agent-hero">
+              <div className="section-kicker">
+                <BadgeCheck size={15} />
+                Verifiable AI alpha
+              </div>
+              <h2>{displayAgents[0].name}</h2>
+              <div className="agent-meta-grid">
+                <span>Rank #{displayAgents[0].rank}</span>
+                <span>{accuracy} accuracy</span>
+                <span>{chainState ? shortAddress(chainState.agent.owner) : "Owner loading"}</span>
+              </div>
               <div className="action-row">
                 <button className="primary-btn" onClick={addSignal} disabled={scanStatus === "running"}>
-                  {scanStatus === "running" ? "Scanning..." : "Run Agent Scan"}
+                  {scanStatus === "running" ? <ScanLine size={17} className="spin" /> : <Play size={17} />}
+                  {scanStatus === "running" ? "Scanning" : "Run Scan"}
                 </button>
-                <button className="secondary-btn" onClick={copyAlphaCard}>Copy Alpha Card</button>
+                <button className="secondary-btn" onClick={copyAlphaCard}>
+                  <Copy size={17} />
+                  Copy Card
+                </button>
+                <a className="ghost-btn" href={selectedSignal.proofUrl ?? `${explorerBaseUrl}/address/${signalRegistryAddress}`} target="_blank" rel="noreferrer">
+                  <ArrowUpRight size={17} />
+                  Proof
+                </a>
               </div>
-              <p className={`notice ${scanStatus}`}>{notice}</p>
-            </section>
+              <div className={`notice ${scanStatus}`}>
+                <span />
+                {notice}
+              </div>
+            </div>
 
-            <section className="metric-grid" aria-label="Arena metrics">
-              <div className="metric">
-                <span>On-chain Signals</span>
-                <strong>{committed}</strong>
-                <small>{pending} pending resolution</small>
+            <div className="score-panel">
+              <div className="score-ring" style={{ "--score": `${Math.min(Math.max(topReputation, 0), 100) * 3.6}deg` } as React.CSSProperties}>
+                <div>
+                  <span>Reputation</span>
+                  <strong>{topReputation}</strong>
+                </div>
               </div>
-              <div className="metric">
-                <span>Resolved</span>
-                <strong>{resolved}</strong>
-                <small>{chainStatus === "ready" ? "Read from ScoreRegistry" : "Waiting for live chain state"}</small>
+              <div className="score-stats">
+                <div>
+                  <span>Resolved</span>
+                  <strong>{resolved}</strong>
+                </div>
+                <div>
+                  <span>Correct</span>
+                  <strong>{chainState?.score.correctSignals ?? "0"}</strong>
+                </div>
+                <div>
+                  <span>Activity bps</span>
+                  <strong>{formatSigned(cumulativeBps)}</strong>
+                </div>
               </div>
-              <div className="metric">
-                <span>Avg Confidence</span>
-                <strong>{avgConfidence}%</strong>
-                <small>Across visible signals</small>
-              </div>
-              <div className="metric">
-                <span>Top Reputation</span>
-                <strong>{topReputation}</strong>
-                <small>Whale Flow Agent</small>
-              </div>
-            </section>
-          </div>
+            </div>
+          </section>
+
+          <section className="metric-strip" aria-label="Arena metrics">
+            <article className="metric-card cobalt">
+              <Layers3 size={18} />
+              <span>On-chain</span>
+              <strong>{committed}</strong>
+              <small>{pending} pending</small>
+            </article>
+            <article className="metric-card mint">
+              <ShieldCheck size={18} />
+              <span>Resolved</span>
+              <strong>{resolved}</strong>
+              <small>{chainStatus === "ready" ? "ScoreRegistry" : "Reading chain"}</small>
+            </article>
+            <article className="metric-card amber">
+              <BarChart3 size={18} />
+              <span>Confidence</span>
+              <strong>{avgConfidence}%</strong>
+              <small>{displaySignals.length} visible</small>
+            </article>
+            <article className="metric-card coral">
+              <DatabaseZap size={18} />
+              <span>Source</span>
+              <strong>{formatDataSource(selectedSignal.evidence?.dataSource)}</strong>
+              <small>{selectedSignal.evidence?.sourceBlockRange ?? "Hashed proof"}</small>
+            </article>
+          </section>
 
           <div className="content-grid">
-            <div className="stack">
-              <section className="panel">
+            <div className="left-stack">
+              <section className="panel signal-studio">
                 <div className="panel-head">
-                  <h3>Agent Leaderboard</h3>
-                  <span className="pill green">Resolved proof</span>
+                  <div>
+                    <span className="panel-kicker">Signal deck</span>
+                    <h3>Live proof queue</h3>
+                  </div>
+                  <span className="live-badge">
+                    <Radio size={13} />
+                    Live Mantle
+                  </span>
                 </div>
-                <div className="leaderboard">
+
+                <div className="signal-list">
+                  {displaySignals.map((signal, index) => (
+                    <article
+                      className={`signal-card ${signal.status.toLowerCase()} ${selectedSignal.id === signal.id ? "selected" : ""}`}
+                      key={signal.id}
+                      style={{ "--delay": `${index * 70}ms` } as React.CSSProperties}
+                    >
+                      <div className="signal-index">{String(index + 1).padStart(2, "0")}</div>
+                      <div className="signal-body">
+                        <div className="signal-title">
+                          <strong>{signal.id} - {signal.target}</strong>
+                          <span className={`direction ${signal.direction.toLowerCase()}`}>{signal.direction}</span>
+                        </div>
+                        <p>{signal.thesis ?? `${signal.agent} generated a ${signal.direction.toLowerCase()} signal.`}</p>
+                        <div className="signal-foot">
+                          <span>{signal.agent}</span>
+                          <a href={signal.proofUrl ?? `${explorerBaseUrl}/address/${signalRegistryAddress}`} target="_blank" rel="noreferrer">
+                            {signal.proof}
+                            <ExternalLink size={12} />
+                          </a>
+                        </div>
+                      </div>
+                      <div className="signal-meter">
+                        <div className="confidence" aria-label={`${signal.confidence}% confidence`}>
+                          <i style={{ width: `${signal.confidence}%` }} />
+                        </div>
+                        <strong>{signal.confidence}%</strong>
+                        <span className={`status-pill ${signal.status.toLowerCase()}`}>{signal.status}</span>
+                      </div>
+                      <button className="inspect-btn" onClick={() => {
+                        setSelectedSignalId(signal.id);
+                        setDossierTab("evidence");
+                      }}>
+                        <ScanLine size={15} />
+                        Inspect
+                      </button>
+                    </article>
+                  ))}
+                </div>
+              </section>
+
+              <section className="panel agent-panel">
+                <div className="panel-head">
+                  <div>
+                    <span className="panel-kicker">Agent arena</span>
+                    <h3>Reputation table</h3>
+                  </div>
+                  <span className="status-pill resolved">Resolved proof</span>
+                </div>
+                <div className="agent-grid">
                   {displayAgents.map((agent) => (
                     <article className="agent-row" key={agent.name}>
-                      <div className="rank">{agent.rank}</div>
+                      <div className="rank">#{agent.rank}</div>
                       <div className="agent-main">
                         <strong>{agent.name}</strong>
                         <span>{agent.focus}</span>
                       </div>
                       <div className="spark" aria-hidden="true">
                         {agent.spark.map((height, index) => (
-                          <i key={index} style={{ height: `${height}%` }} />
+                          <i key={index} style={{ height: `${height}%`, animationDelay: `${index * 75}ms` }} />
                         ))}
                       </div>
                       <div className="score">
                         <strong>{agent.reputation}</strong>
-                        <span>{agent.accuracy} accuracy</span>
+                        <span>{agent.accuracy}</span>
                       </div>
-                    </article>
-                  ))}
-                </div>
-              </section>
-
-              <section className="panel">
-                <div className="panel-head">
-                  <h3>Signal Feed</h3>
-                  <span className="pill blue">Live Mantle state</span>
-                </div>
-                <div className="signals">
-                  {displaySignals.map((signal) => (
-                    <article
-                      className={`signal-row ${signal.status.toLowerCase()} ${selectedSignal.id === signal.id ? "selected" : ""}`}
-                      key={signal.id}
-                    >
-                      <div className="signal-main">
-                        <strong>{signal.id} · {signal.target} · {signal.direction}</strong>
-                        <span>{signal.agent}</span>
-                      </div>
-                      <div>
-                        <div className="confidence" aria-label={`${signal.confidence}% confidence`}>
-                          <span style={{ width: `${signal.confidence}%` }} />
-                        </div>
-                        <span className="muted">{signal.confidence}%</span>
-                      </div>
-                      <span className={signal.status === "Resolved" ? "pill green" : "pill amber"}>{signal.status}</span>
-                      <a className="proof-link" href={signal.proofUrl ?? `${explorerBaseUrl}/address/${signalRegistryAddress}`} target="_blank" rel="noreferrer">{signal.proof}</a>
-                      <button className="inspect-btn" onClick={() => setSelectedSignalId(signal.id)}>Inspect</button>
                     </article>
                   ))}
                 </div>
               </section>
             </div>
 
-            <aside className="stack">
-              <section className="alpha-card">
-                <span className="muted">Shareable Alpha Card</span>
-                <h3>{selectedSignal.agent} called {selectedSignal.target} {selectedSignal.direction.toLowerCase()}</h3>
-                <p className="muted">Committed before expiry. Resolved score updates agent reputation on Mantle.</p>
-                <dl>
-                  <div>
-                    <dt>Confidence</dt>
-                    <dd>{selectedSignal.confidence}%</dd>
-                  </div>
-                  <div>
-                    <dt>Result</dt>
-                    <dd>{selectedSignal.result}</dd>
-                  </div>
-                  <div>
-                    <dt>Status</dt>
-                    <dd>{selectedSignal.status}</dd>
-                  </div>
-                  <div>
-                    <dt>Proof</dt>
-                    <dd>{selectedSignal.proof}</dd>
-                  </div>
-                </dl>
-              </section>
-
-              <section className="panel evidence-panel">
-                <div className="panel-head">
-                  <h3>Evidence Ledger</h3>
-                  <span className="pill green">{selectedSignal.status}</span>
+            <aside className="dossier">
+              <section className="alpha-pass">
+                <div className="alpha-topline">
+                  <span>Alpha card</span>
+                  <strong>{selectedSignal.status}</strong>
                 </div>
-                <div className="evidence-grid">
-                  <div>
-                    <span>Source</span>
-                    <strong>{formatDataSource(selectedSignal.evidence?.dataSource)}</strong>
-                  </div>
-                  <div>
-                    <span>Observed</span>
-                    <strong>{formatObservedAt(selectedSignal.evidence?.observedAt)}</strong>
-                  </div>
-                  <div>
-                    <span>Source Blocks</span>
-                    <strong>{selectedSignal.evidence?.sourceBlockRange ?? "Hashed fixture"}</strong>
-                  </div>
-                  <div>
-                    <span>Outcome Blocks</span>
-                    <strong>{selectedSignal.evidence?.outcomeBlockRange ?? "Resolver scored"}</strong>
-                  </div>
-                  <div>
-                    <span>Source Activity</span>
-                    <strong>{formatActivity(selectedSignal.evidence?.sourceTxCount, selectedSignal.evidence?.uniqueWallets)}</strong>
-                  </div>
-                  <div>
-                    <span>Outcome Activity</span>
-                    <strong>{formatActivity(selectedSignal.evidence?.outcomeTxCount, selectedSignal.evidence?.outcomeWallets)}</strong>
-                  </div>
-                  <div>
-                    <span>Whale Wallets</span>
-                    <strong>{selectedSignal.evidence?.whaleWallets ?? 0}</strong>
-                  </div>
-                  <div>
-                    <span>Score Impact</span>
-                    <strong>{selectedSignal.evidence?.scoreDelta ?? selectedSignal.result}</strong>
-                  </div>
-                </div>
-                <div className="evidence-links" aria-label="Evidence transaction links">
-                  {selectedSignal.commitTx ? (
-                    <a href={txUrl(selectedSignal.commitTx)} target="_blank" rel="noreferrer">Commit {shortenHash(selectedSignal.commitTx)}</a>
-                  ) : null}
-                  {selectedSignal.resolveTx ? (
-                    <a href={txUrl(selectedSignal.resolveTx)} target="_blank" rel="noreferrer">Resolve {shortenHash(selectedSignal.resolveTx)}</a>
-                  ) : null}
-                  {(selectedSignal.evidence?.sourceTxs ?? []).slice(0, 4).map((tx) => (
-                    <a href={txUrl(tx)} target="_blank" rel="noreferrer" key={tx}>Source {shortenHash(tx)}</a>
-                  ))}
-                </div>
-              </section>
-
-              <section className="panel payload-panel">
-                <div className="panel-head">
-                  <h3>Commit Payload</h3>
-                  <span className="pill blue">{selectedSignal.contract?.functionName ?? "commitSignal"}</span>
-                </div>
-                <div className="payload-grid">
-                  <div>
-                    <span>Agent</span>
-                    <strong>#{selectedSignal.contract?.payload.agentId ?? "1"}</strong>
-                  </div>
+                <h3>{selectedSignal.target} {selectedSignal.direction}</h3>
+                <p>{selectedSignal.thesis}</p>
+                <div className="alpha-stats">
                   <div>
                     <span>Confidence</span>
-                    <strong>{selectedSignal.contract?.payload.confidenceBps ?? selectedSignal.confidence * 100} bps</strong>
+                    <strong>{selectedSignal.confidence}%</strong>
                   </div>
                   <div>
-                    <span>Source Hash</span>
-                    <strong>{shortenHash(selectedSignal.sourceDataHash ?? initialContract.payload.sourceDataHash)}</strong>
+                    <span>Outcome</span>
+                    <strong>{selectedSignal.result}</strong>
                   </div>
                   <div>
-                    <span>Explanation</span>
-                    <strong>{shortenHash(selectedSignal.explanationHash ?? initialContract.payload.explanationHash)}</strong>
+                    <span>Proof</span>
+                    <strong>{selectedSignal.proof}</strong>
                   </div>
                 </div>
-                <code>{JSON.stringify(selectedSignal.contract?.args ?? initialContract.args, null, 2)}</code>
               </section>
 
-              <section className="panel">
-                <div className="panel-head">
-                  <h3>Proof Timeline</h3>
-                  <span className="pill">Seeded proof</span>
+              <section className="panel dossier-panel">
+                <div className="dossier-tabs" role="tablist" aria-label="Selected signal dossier">
+                  <button className={dossierTab === "evidence" ? "active" : ""} onClick={() => setDossierTab("evidence")}>
+                    <DatabaseZap size={15} />
+                    Evidence
+                  </button>
+                  <button className={dossierTab === "payload" ? "active" : ""} onClick={() => setDossierTab("payload")}>
+                    <FileCode2 size={15} />
+                    Payload
+                  </button>
+                  <button className={dossierTab === "timeline" ? "active" : ""} onClick={() => setDossierTab("timeline")}>
+                    <Timer size={15} />
+                    Timeline
+                  </button>
                 </div>
-                <ol className="timeline">
-                  {events.map(([time, title, detail]) => (
-                    <li key={`${time}-${title}`}>
-                      <time>{time}</time>
-                      <div>
-                        <strong>{title}</strong>
-                        <span>{detail}</span>
-                      </div>
-                    </li>
-                  ))}
-                </ol>
+
+                {dossierTab === "evidence" ? (
+                  <>
+                    <div className="evidence-grid">
+                      <EvidenceTile label="Source" value={formatDataSource(selectedSignal.evidence?.dataSource)} />
+                      <EvidenceTile label="Observed" value={formatObservedAt(selectedSignal.evidence?.observedAt)} />
+                      <EvidenceTile label="Source blocks" value={selectedSignal.evidence?.sourceBlockRange ?? "Hashed fixture"} />
+                      <EvidenceTile label="Outcome blocks" value={selectedSignal.evidence?.outcomeBlockRange ?? "Resolver scored"} />
+                      <EvidenceTile label="Source activity" value={formatActivity(selectedSignal.evidence?.sourceTxCount, selectedSignal.evidence?.uniqueWallets)} />
+                      <EvidenceTile label="Outcome activity" value={formatActivity(selectedSignal.evidence?.outcomeTxCount, selectedSignal.evidence?.outcomeWallets)} />
+                      <EvidenceTile label="Whale wallets" value={String(selectedSignal.evidence?.whaleWallets ?? 0)} />
+                      <EvidenceTile label="Score impact" value={selectedSignal.evidence?.scoreDelta ?? selectedSignal.result} />
+                    </div>
+                    <div className="evidence-links" aria-label="Evidence transaction links">
+                      {proofLinks.map((link) => (
+                        <a href={link.href} target="_blank" rel="noreferrer" key={`${link.label}-${link.href}`}>
+                          <ExternalLink size={13} />
+                          {link.label}
+                        </a>
+                      ))}
+                    </div>
+                  </>
+                ) : null}
+
+                {dossierTab === "payload" ? (
+                  <div className="payload-panel">
+                    <div className="payload-grid">
+                      <EvidenceTile label="Agent" value={`#${selectedSignal.contract?.payload.agentId ?? "1"}`} />
+                      <EvidenceTile label="Confidence" value={`${selectedSignal.contract?.payload.confidenceBps ?? selectedSignal.confidence * 100} bps`} />
+                      <EvidenceTile label="Source hash" value={shortenHash(selectedSignal.sourceDataHash ?? initialContract.payload.sourceDataHash)} />
+                      <EvidenceTile label="Explanation" value={shortenHash(selectedSignal.explanationHash ?? initialContract.payload.explanationHash)} />
+                    </div>
+                    <code>{JSON.stringify(selectedSignal.contract?.args ?? initialContract.args, null, 2)}</code>
+                  </div>
+                ) : null}
+
+                {dossierTab === "timeline" ? (
+                  <ol className="timeline">
+                    {events.map(([time, title, detail]) => (
+                      <li key={`${time}-${title}`}>
+                        <time>{time}</time>
+                        <div>
+                          <strong>{title}</strong>
+                          <span>{detail}</span>
+                        </div>
+                      </li>
+                    ))}
+                  </ol>
+                ) : null}
               </section>
             </aside>
           </div>
         </section>
       </div>
     </main>
+  );
+}
+
+function EvidenceTile({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="evidence-tile">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
   );
 }
 
@@ -665,6 +767,18 @@ function toPreparedEvidence(scan: AgentScanResponse): SignalEvidence {
   };
 }
 
+function getProofLinks(signal: Signal) {
+  const links: Array<{ label: string; href: string }> = [];
+  if (signal.commitTx) links.push({ label: `Commit ${shortenHash(signal.commitTx)}`, href: txUrl(signal.commitTx) });
+  if (signal.resolveTx) links.push({ label: `Resolve ${shortenHash(signal.resolveTx)}`, href: txUrl(signal.resolveTx) });
+
+  for (const tx of (signal.evidence?.sourceTxs ?? []).slice(0, 4)) {
+    links.push({ label: `Source ${shortenHash(tx)}`, href: txUrl(tx) });
+  }
+
+  return links;
+}
+
 function toTitleDirection(direction: AgentScanResponse["signal"]["direction"]): Signal["direction"] {
   if (direction === "bullish") return "Bullish";
   if (direction === "bearish") return "Bearish";
@@ -686,7 +800,7 @@ function txUrl(tx: string) {
 function formatDataSource(dataSource?: string) {
   if (!dataSource) return "Mantle proof hash";
   if (dataSource === "mantle-sepolia-rpc-native-transfers") return "Mantle Sepolia RPC";
-  return dataSource;
+  return dataSource.replaceAll("-", " ");
 }
 
 function formatObservedAt(value?: string) {
@@ -718,6 +832,10 @@ function formatUnixTimeLeft(expiresAt: string) {
 function formatPnl(pnlBps: string) {
   const value = Number(pnlBps) / 100;
   return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
+}
+
+function formatSigned(value: number) {
+  return `${value >= 0 ? "+" : ""}${value}`;
 }
 
 function formatAccuracy(score: ChainStateResponse["score"]) {

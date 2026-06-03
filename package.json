@@ -17,6 +17,9 @@
     "resolve:live-signal": "npm run build --workspace services/agent && node scripts/resolve-live-signal.mjs",
     "resolve:mantle-sepolia": "npm run build --workspace services/agent && node scripts/resolve-demo-signal.mjs"
   },
+  "dependencies": {
+    "ws": "8.20.1"
+  },
   "engines": {
     "node": ">=20"
   }

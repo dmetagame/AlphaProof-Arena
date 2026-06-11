@@ -21,9 +21,12 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatedNumber } from "@/components/animated-number";
+import { BlockStreamTicker } from "@/components/block-stream-ticker";
+import { ProofPulse } from "@/components/proof-pulse";
 import { useMotion } from "@/components/motion-provider";
 import { useArenaMotion } from "@/lib/animation/use-arena-motion";
 import { useCardTilt } from "@/lib/animation/use-card-tilt";
+import { useHashScramble } from "@/lib/animation/use-hash-scramble";
 import { useMagneticButton } from "@/lib/animation/use-magnetic-button";
 import { useParallax } from "@/lib/animation/use-parallax";
 import { useRevealAnimation } from "@/lib/animation/use-reveal-animation";
@@ -269,6 +272,10 @@ export default function Dashboard() {
   const [dossierTab, setDossierTab] = useState<DossierTab>("evidence");
   const [activeSection, setActiveSection] = useState("command");
   const [notice, setNotice] = useState("Whale Flow Agent is ready to start a live Mantle proof round.");
+  const [commitPulseId, setCommitPulseId] = useState(0);
+  const [resolvePulseId, setResolvePulseId] = useState(0);
+  const [activePulseNode, setActivePulseNode] = useState<"agent" | "signal" | "score" | null>(null);
+  const lastResolvedRef = useRef<number | null>(null);
 
   const reloadChainState = useMemo(() => async () => {
     setChainStatus("loading");
@@ -328,6 +335,13 @@ export default function Dashboard() {
   const proofLinks = getProofLinks(selectedSignal);
   const timelineEvents = buildSignalTimeline(selectedSignal);
   const heroWords = displayAgents[0].name.split(" ");
+  const scrambledProof = useHashScramble(selectedSignal.proof);
+  const scrambledSourceHash = useHashScramble(
+    shortenHash(selectedSignal.sourceDataHash ?? initialContract.payload.sourceDataHash)
+  );
+  const scrambledExplanationHash = useHashScramble(
+    shortenHash(selectedSignal.explanationHash ?? initialContract.payload.explanationHash)
+  );
   const networkDetail = chainStatus === "ready"
     ? `SignalRegistry ${shortAddress(chainState?.contracts.signalRegistry ?? signalRegistryAddress)}`
     : chainStatus === "loading"
@@ -352,6 +366,26 @@ export default function Dashboard() {
     }
   }, [displaySignals, selectedSignalId]);
 
+  useEffect(() => {
+    if (!chainState) return;
+    const resolvedNow = Number(chainState.score.resolvedSignals);
+    if (lastResolvedRef.current === null) {
+      lastResolvedRef.current = resolvedNow;
+      return;
+    }
+    if (resolvedNow > lastResolvedRef.current) {
+      setResolvePulseId((n) => n + 1);
+      setActivePulseNode("score");
+    }
+    lastResolvedRef.current = resolvedNow;
+  }, [chainState]);
+
+  useEffect(() => {
+    if (activePulseNode === null) return;
+    const timeout = setTimeout(() => setActivePulseNode(null), 1400);
+    return () => clearTimeout(timeout);
+  }, [activePulseNode, commitPulseId, resolvePulseId]);
+
   function scrollToSection(section: string) {
     setActiveSection(section);
     scrollTo(`#${section}`, { offset: -92, duration: 1 });
@@ -361,6 +395,8 @@ export default function Dashboard() {
     setScanStatus("running");
     setDossierTab("payload");
     setNotice("Whale Flow Agent is reading Mantle RPC data and opening a proof round.");
+    setCommitPulseId((n) => n + 1);
+    setActivePulseNode("agent");
 
     try {
       const response = await fetch("/api/arena-round", {
@@ -591,6 +627,14 @@ export default function Dashboard() {
                 <span />
                 {notice}
               </div>
+              <div className="hero-pulse" data-hero-reveal>
+                <ProofPulse
+                  commitPulseId={commitPulseId}
+                  resolvePulseId={resolvePulseId}
+                  activeNode={activePulseNode}
+                />
+              </div>
+              <BlockStreamTicker />
               <div className="xp-burst" aria-hidden="true">+120 XP</div>
               <div className="achievement-toast" aria-hidden="true">
                 <strong>Achievement unlocked</strong>
@@ -763,7 +807,7 @@ export default function Dashboard() {
                   </div>
                   <div>
                     <span>Proof</span>
-                    <strong>{selectedSignal.proof}</strong>
+                    <strong className="mono-proof">{scrambledProof}</strong>
                   </div>
                 </div>
               </section>
@@ -816,7 +860,7 @@ export default function Dashboard() {
 
                 {dossierTab === "evidence" ? (
                   <div data-tab-panel role="tabpanel" id="dossier-panel-evidence" aria-labelledby="dossier-tab-evidence">
-                    <div className="evidence-grid">
+                    <div className="evidence-grid receipt-reveal" key={`evidence-${selectedSignal.id}`}>
                       <EvidenceTile label="Source" value={formatDataSource(selectedSignal.evidence?.dataSource)} />
                       <EvidenceTile label="Observed" value={formatObservedAt(selectedSignal.evidence?.observedAt)} />
                       <EvidenceTile label="Round" value={selectedSignal.evidence?.roundStage ?? selectedSignal.status} />
@@ -844,8 +888,8 @@ export default function Dashboard() {
                     <div className="payload-grid">
                       <EvidenceTile label="Agent" value={`#${selectedSignal.contract?.payload.agentId ?? "1"}`} />
                       <EvidenceTile label="Confidence" value={`${selectedSignal.contract?.payload.confidenceBps ?? selectedSignal.confidence * 100} bps`} />
-                      <EvidenceTile label="Source hash" value={shortenHash(selectedSignal.sourceDataHash ?? initialContract.payload.sourceDataHash)} />
-                      <EvidenceTile label="Explanation" value={shortenHash(selectedSignal.explanationHash ?? initialContract.payload.explanationHash)} />
+                      <EvidenceTile label="Source hash" value={scrambledSourceHash} />
+                      <EvidenceTile label="Explanation" value={scrambledExplanationHash} />
                     </div>
                     <code>{JSON.stringify(selectedSignal.contract?.args ?? initialContract.args, null, 2)}</code>
                   </div>

@@ -35,6 +35,7 @@ contract ScoreRegistry {
     }
 
     constructor(address initialResolver) {
+        require(initialResolver != address(0), "resolver zero");
         owner = msg.sender;
         resolver = initialResolver;
         emit ResolverUpdated(initialResolver);

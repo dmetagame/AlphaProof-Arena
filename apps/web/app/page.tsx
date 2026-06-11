@@ -688,7 +688,7 @@ export default function Dashboard() {
             <article className="metric-card coral" data-tilt-card>
               <DatabaseZap size={18} />
               <span>Source</span>
-              <strong>{formatDataSource(selectedSignal.evidence?.dataSource)}</strong>
+              <strong className="metric-text">{formatDataSource(selectedSignal.evidence?.dataSource)}</strong>
               <small>{selectedSignal.evidence?.sourceBlockRange ?? "Hashed proof"}</small>
             </article>
           </section>

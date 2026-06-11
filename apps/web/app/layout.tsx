@@ -1,13 +1,29 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import { Manrope } from "next/font/google";
+import { Fraunces, Inter, JetBrains_Mono } from "next/font/google";
 import { MotionProvider } from "@/components/motion-provider";
 import "./globals.css";
 
-const manrope = Manrope({
+const fraunces = Fraunces({
   subsets: ["latin"],
   display: "swap",
-  variable: "--font-manrope"
+  variable: "--font-fraunces",
+  weight: "variable",
+  axes: ["opsz"]
+});
+
+const inter = Inter({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-inter",
+  weight: ["400", "500", "600"]
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-jbmono",
+  weight: ["400", "500"]
 });
 
 export const metadata: Metadata = {
@@ -17,7 +33,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <html lang="en" className={manrope.variable}>
+    <html lang="en" className={`${fraunces.variable} ${inter.variable} ${jetbrainsMono.variable}`}>
       <body>
         <MotionProvider>{children}</MotionProvider>
       </body>

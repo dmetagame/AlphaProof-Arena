@@ -1248,7 +1248,7 @@ html,
 body {
   background: #f4f6f9;
   color: var(--ink);
-  font-family: var(--font-manrope), Manrope, Inter, ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-body);
 }
 
 body::selection {
@@ -2354,9 +2354,9 @@ a:focus-visible {
 
 .pulse-node text {
   fill: var(--muted);
-  font-family: var(--font-manrope), Manrope, Inter, ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-body);
   font-size: 6px;
-  font-weight: 800;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
@@ -2442,4 +2442,252 @@ a:focus-visible {
     opacity: 1;
     transform: none;
   }
+}
+
+/* ============================================================
+   Typography system
+   Display: Fraunces (var --font-fraunces) · Body/UI: Inter
+   (var --font-inter) · Data: JetBrains Mono (var --font-jbmono)
+   ============================================================ */
+
+:root {
+  --font-display: var(--font-fraunces), Georgia, serif;
+  --font-body: var(--font-inter), system-ui, sans-serif;
+  --font-data: var(--font-jbmono), ui-monospace, monospace;
+
+  --text-h1: clamp(2.5rem, 6vw, 4rem);
+  --lh-h1: 1.05;
+  --ls-h1: -0.02em;
+
+  --text-h2: clamp(1.75rem, 4vw, 2.5rem);
+  --lh-h2: 1.15;
+  --ls-h2: -0.01em;
+
+  --text-h3: 1.375rem;
+  --lh-h3: 1.25;
+
+  --text-eyebrow: 0.75rem;
+  --ls-eyebrow: 0.14em;
+
+  --text-body: 1rem;
+  --lh-body: 1.6;
+
+  --text-body-sm: 0.875rem;
+  --lh-body-sm: 1.55;
+
+  --text-stat: 2rem;
+  --text-stat-sm: 1.5rem;
+  --ls-stat: -0.01em;
+
+  --text-stat-label: 0.75rem;
+  --ls-stat-label: 0.1em;
+
+  --text-hash: 0.8125rem;
+
+  --text-button: 0.875rem;
+  --ls-button: 0.02em;
+
+  --text-badge: 0.75rem;
+  --ls-badge: 0.04em;
+}
+
+body {
+  font-family: var(--font-body);
+  font-size: var(--text-body);
+  font-weight: 400;
+  line-height: var(--lh-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* --- Display headings (Fraunces, optical sizing on) --- */
+
+.agent-hero h2 {
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
+  font-size: var(--text-h1);
+  font-weight: 700;
+  line-height: var(--lh-h1);
+  letter-spacing: var(--ls-h1);
+}
+
+.alpha-pass h3 {
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
+  font-size: var(--text-h2);
+  font-weight: 600;
+  line-height: var(--lh-h2);
+  letter-spacing: var(--ls-h2);
+}
+
+.panel-head h3 {
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
+  font-size: var(--text-h3);
+  font-weight: 600;
+  line-height: var(--lh-h3);
+  letter-spacing: 0;
+}
+
+.brand h1 {
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
+  font-size: 1.125rem;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+}
+
+/* --- Eyebrow / overline labels --- */
+
+.rail-label,
+.panel-kicker,
+.section-kicker,
+.alpha-topline span,
+.alpha-topline strong,
+.rail-card span {
+  font-family: var(--font-body);
+  font-size: var(--text-eyebrow);
+  font-weight: 600;
+  letter-spacing: var(--ls-eyebrow);
+  text-transform: uppercase;
+}
+
+/* --- Body text --- */
+
+.brand span,
+.notice,
+.timeline span,
+.agent-main span,
+.metric-card small,
+.score span {
+  font-family: var(--font-body);
+  font-size: var(--text-body-sm);
+  font-weight: 400;
+  line-height: var(--lh-body-sm);
+}
+
+.signal-body p,
+.alpha-pass p,
+.hero-explainer {
+  max-width: 65ch;
+  font-family: var(--font-body);
+  font-size: var(--text-body-sm);
+  font-weight: 400;
+  line-height: var(--lh-body-sm);
+}
+
+.signal-title strong,
+.agent-main strong,
+.evidence-tile strong,
+.timeline strong,
+.achievement-toast span {
+  font-family: var(--font-body);
+  font-weight: 600;
+}
+
+/* --- Stat values (JetBrains Mono, tabular) --- */
+
+.score-ring strong,
+.metric-card strong {
+  font-family: var(--font-data);
+  font-size: var(--text-stat);
+  font-weight: 500;
+  letter-spacing: var(--ls-stat);
+  font-feature-settings: "tnum";
+  font-variant-numeric: tabular-nums;
+}
+
+.score-stats strong,
+.signal-meter strong,
+.score strong,
+.alpha-stats strong {
+  font-family: var(--font-data);
+  font-size: var(--text-stat-sm);
+  font-weight: 500;
+  letter-spacing: var(--ls-stat);
+  font-feature-settings: "tnum";
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Stat labels --- */
+
+.score-ring span,
+.score-stats span,
+.metric-card span,
+.alpha-stats span,
+.evidence-tile span,
+.timeline time {
+  font-family: var(--font-body);
+  font-size: var(--text-stat-label);
+  font-weight: 500;
+  letter-spacing: var(--ls-stat-label);
+  text-transform: uppercase;
+}
+
+/* --- Hashes / addresses / chain data --- */
+
+.chain-chip span,
+.signal-foot a,
+.mono-proof,
+.ticker-hash,
+.ticker-item strong,
+.evidence-tile strong,
+.payload-panel code {
+  font-family: var(--font-data);
+  font-size: var(--text-hash);
+  font-weight: 400;
+  letter-spacing: 0;
+  font-feature-settings: "tnum";
+  font-variant-numeric: tabular-nums;
+}
+
+.ticker-meta,
+.rail-item strong {
+  font-feature-settings: "tnum";
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Buttons & interactive controls --- */
+
+.primary-btn,
+.secondary-btn,
+.ghost-btn,
+.inspect-btn,
+.top-link,
+.chain-chip,
+.rail-item,
+.dossier-tabs button,
+.evidence-links a {
+  font-family: var(--font-body);
+  font-size: var(--text-button);
+  font-weight: 600;
+  letter-spacing: var(--ls-button);
+}
+
+/* --- Badges & pills --- */
+
+.status-pill,
+.direction,
+.live-badge,
+.xp-burst,
+.round-steps li,
+.agent-meta-grid span,
+.ticker-badge,
+.achievement-toast strong {
+  font-family: var(--font-body);
+  font-size: var(--text-badge);
+  font-weight: 600;
+  letter-spacing: var(--ls-badge);
+}
+
+/* Text-valued metric (data source name) — body face, not a numeric stat */
+.metric-card strong.metric-text {
+  font-family: var(--font-body);
+  font-size: 1.125rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1.3;
+  font-feature-settings: normal;
+  font-variant-numeric: normal;
 }

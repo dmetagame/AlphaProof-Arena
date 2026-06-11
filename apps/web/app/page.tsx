@@ -270,28 +270,22 @@ export default function Dashboard() {
   const [activeSection, setActiveSection] = useState("command");
   const [notice, setNotice] = useState("Whale Flow Agent is ready to start a live Mantle proof round.");
 
-  useEffect(() => {
-    let active = true;
-
-    async function loadChainState() {
-      try {
-        const response = await fetch("/api/chain-state", { cache: "no-store" });
-        if (!response.ok) throw new Error("chain state failed");
-        const state = await response.json() as ChainStateResponse;
-        if (!active) return;
-        setChainState(state);
-        setChainStatus("ready");
-      } catch {
-        if (!active) return;
-        setChainStatus("error");
-      }
+  const reloadChainState = useMemo(() => async () => {
+    setChainStatus("loading");
+    try {
+      const response = await fetch("/api/chain-state", { cache: "no-store" });
+      if (!response.ok) throw new Error("chain state failed");
+      const state = await response.json() as ChainStateResponse;
+      setChainState(state);
+      setChainStatus("ready");
+    } catch {
+      setChainStatus("error");
     }
-
-    loadChainState();
-    return () => {
-      active = false;
-    };
   }, []);
+
+  useEffect(() => {
+    void reloadChainState();
+  }, [reloadChainState]);
 
   const chainSignals = useMemo(
     () => chainState?.signals.map(toDashboardSignal).reverse() ?? initialSignals,
@@ -323,7 +317,9 @@ export default function Dashboard() {
   const latest = displaySignals[0];
   const selectedSignal = displaySignals.find((signal) => signal.id === selectedSignalId) ?? latest ?? initialSignals[0];
   const avgConfidence = useMemo(
-    () => Math.round(displaySignals.reduce((sum, signal) => sum + signal.confidence, 0) / displaySignals.length),
+    () => displaySignals.length === 0
+      ? 0
+      : Math.round(displaySignals.reduce((sum, signal) => sum + signal.confidence, 0) / displaySignals.length),
     [displaySignals]
   );
   const topReputation = chainState ? Number(chainState.score.reputation) : agents[0].reputation;
@@ -336,7 +332,7 @@ export default function Dashboard() {
     ? `SignalRegistry ${shortAddress(chainState?.contracts.signalRegistry ?? signalRegistryAddress)}`
     : chainStatus === "loading"
       ? "Reading live chain state"
-      : "Live RPC unavailable";
+      : "Live RPC unavailable — click to retry";
 
   useRevealAnimation(motionScopeRef, { refreshKey: displaySignals.length });
   useParallax(motionScopeRef, displaySignals.length);
@@ -380,6 +376,12 @@ export default function Dashboard() {
       setSelectedSignalId(signal.id);
       setScanStatus("ready");
       setNotice(buildRoundNotice(round));
+
+      if (round.round.committed) {
+        void reloadChainState().then(() => {
+          setPreparedSignals((current) => current.filter((entry) => !entry.commitTx));
+        });
+      }
     } catch {
       setScanStatus("error");
       setNotice("Arena round failed locally. Keep the Next API route running and retry.");
@@ -387,17 +389,20 @@ export default function Dashboard() {
   }
 
   async function copyAlphaCard() {
+    const proofUrl = selectedSignal.proofUrl
+      ?? `${explorerBaseUrl}/address/${signalRegistryAddress}`;
     const lines = [
       "AlphaProof Arena",
       `${selectedSignal.agent} called ${selectedSignal.target} ${selectedSignal.direction.toLowerCase()} with ${selectedSignal.confidence}% confidence.`,
       `Status: ${selectedSignal.status}`,
-      `Proof: ${selectedSignal.proof}`,
-      selectedSignal.thesis ? `Thesis: ${selectedSignal.thesis}` : ""
+      `Outcome: ${selectedSignal.result}`,
+      selectedSignal.thesis ? `Thesis: ${selectedSignal.thesis}` : "",
+      `Proof: ${proofUrl}`
     ].filter(Boolean);
 
     try {
       await navigator.clipboard.writeText(lines.join("\n"));
-      setNotice("Alpha Card copied.");
+      setNotice("Alpha Card copied to clipboard with Mantle Explorer link.");
     } catch {
       setNotice(lines.join(" "));
     }
@@ -419,15 +424,21 @@ export default function Dashboard() {
           </div>
           <div>
             <h1>AlphaProof Arena</h1>
-            <span>AI Alpha & Data</span>
+            <span>Proof-of-alpha for AI agents on Mantle</span>
           </div>
         </div>
         <div className="network-cluster">
-          <div className={`chain-chip ${chainStatus}`}>
+          <button
+            type="button"
+            className={`chain-chip ${chainStatus}`}
+            onClick={() => { if (chainStatus !== "loading") void reloadChainState(); }}
+            aria-label="Reload chain state"
+            disabled={chainStatus === "loading"}
+          >
             <Radio size={15} />
             <strong>Mantle Sepolia</strong>
             <span>{networkDetail}</span>
-          </div>
+          </button>
           <a className="top-link" href={`${explorerBaseUrl}/address/${signalRegistryAddress}`} target="_blank" rel="noreferrer">
             <ExternalLink size={14} />
             Explorer
@@ -437,29 +448,53 @@ export default function Dashboard() {
 
       <div className="workspace">
         <aside className="side-rail">
-          <div className="rail-section">
+          <nav className="rail-section" aria-label="Arena sections">
             <span className="rail-label">Arena</span>
-            <button className={`rail-item ${activeSection === "command" ? "active" : ""}`} onClick={() => scrollToSection("command")} data-magnetic>
-              <Activity size={16} />
+            <button
+              type="button"
+              className={`rail-item ${activeSection === "command" ? "active" : ""}`}
+              aria-current={activeSection === "command" ? "page" : undefined}
+              onClick={() => scrollToSection("command")}
+              data-magnetic
+            >
+              <Activity size={16} aria-hidden="true" />
               <span>Command</span>
-              <strong>{displaySignals.length}</strong>
+              <strong aria-label={`${displaySignals.length} signals`}>{displaySignals.length}</strong>
             </button>
-            <button className={`rail-item ${activeSection === "agents" ? "active" : ""}`} onClick={() => scrollToSection("agents")} data-magnetic>
-              <ShieldCheck size={16} />
+            <button
+              type="button"
+              className={`rail-item ${activeSection === "agents" ? "active" : ""}`}
+              aria-current={activeSection === "agents" ? "page" : undefined}
+              onClick={() => scrollToSection("agents")}
+              data-magnetic
+            >
+              <ShieldCheck size={16} aria-hidden="true" />
               <span>Agents</span>
-              <strong>{displayAgents.length}</strong>
+              <strong aria-label={`${displayAgents.length} agents`}>{displayAgents.length}</strong>
             </button>
-            <button className={`rail-item ${activeSection === "signals" ? "active" : ""}`} onClick={() => scrollToSection("signals")} data-magnetic>
-              <GitCommitHorizontal size={16} />
+            <button
+              type="button"
+              className={`rail-item ${activeSection === "signals" ? "active" : ""}`}
+              aria-current={activeSection === "signals" ? "page" : undefined}
+              onClick={() => scrollToSection("signals")}
+              data-magnetic
+            >
+              <GitCommitHorizontal size={16} aria-hidden="true" />
               <span>Signals</span>
-              <strong>{resolved}</strong>
+              <strong aria-label={`${resolved} resolved`}>{resolved}</strong>
             </button>
-            <button className={`rail-item ${activeSection === "score" ? "active" : ""}`} onClick={() => scrollToSection("score")} data-magnetic>
-              <Trophy size={16} />
+            <button
+              type="button"
+              className={`rail-item ${activeSection === "score" ? "active" : ""}`}
+              aria-current={activeSection === "score" ? "page" : undefined}
+              onClick={() => scrollToSection("score")}
+              data-magnetic
+            >
+              <Trophy size={16} aria-hidden="true" />
               <span>Score</span>
-              <strong>{topReputation}</strong>
+              <strong aria-label={`Reputation ${topReputation}`}>{topReputation}</strong>
             </button>
-          </div>
+          </nav>
 
           <div className="rail-card">
             <span>Deployment award</span>
@@ -493,35 +528,62 @@ export default function Dashboard() {
                 <span>{accuracy} accuracy</span>
                 <span>{chainState ? shortAddress(chainState.agent.owner) : "Owner loading"}</span>
               </div>
-              <div className="round-steps" aria-label="Live arena round flow" data-hero-reveal>
-                <span className={scanStatus === "running" ? "active" : ""}>
-                  <ScanLine size={14} />
-                  Scan
-                </span>
-                <span className={scanStatus === "ready" ? "active" : ""}>
-                  <GitCommitHorizontal size={14} />
-                  Commit
-                </span>
-                <span>
-                  <Timer size={14} />
-                  Resolve
-                </span>
-                <span>
-                  <Trophy size={14} />
-                  Rank
-                </span>
-              </div>
+              <p className="hero-explainer" data-hero-reveal>
+                Each round hashes a fresh AI signal and commits it to Mantle before the outcome
+                window closes. The resolver writes the result and reputation update on-chain — no
+                claims, just verifiable proof.
+              </p>
+              <ol className="round-steps" aria-label="Live arena round flow" data-hero-reveal>
+                <li className={scanStatus === "running" ? "active" : ""} title="Read recent Mantle Sepolia blocks">
+                  <ScanLine size={14} aria-hidden="true" />
+                  <span>Scan</span>
+                </li>
+                <li className={scanStatus === "ready" ? "active" : ""} title="Hash signal and write to SignalRegistry">
+                  <GitCommitHorizontal size={14} aria-hidden="true" />
+                  <span>Commit</span>
+                </li>
+                <li title="Score the outcome window after expiry">
+                  <Timer size={14} aria-hidden="true" />
+                  <span>Resolve</span>
+                </li>
+                <li title="Update reputation on ScoreRegistry">
+                  <Trophy size={14} aria-hidden="true" />
+                  <span>Rank</span>
+                </li>
+              </ol>
               <div className="action-row" data-hero-reveal>
-                <button className="primary-btn" onClick={addSignal} disabled={scanStatus === "running"} data-magnetic>
-                  {scanStatus === "running" ? <ScanLine size={17} className="scan-spinner" /> : <Play size={17} />}
+                <button
+                  type="button"
+                  className="primary-btn"
+                  onClick={addSignal}
+                  disabled={scanStatus === "running"}
+                  aria-label={scanStatus === "running" ? "Starting arena round" : "Start a live Mantle proof round"}
+                  data-magnetic
+                >
+                  {scanStatus === "running"
+                    ? <ScanLine size={17} className="scan-spinner" aria-hidden="true" />
+                    : <Play size={17} aria-hidden="true" />}
                   {scanStatus === "running" ? "Starting" : "Start Round"}
                 </button>
-                <button className="secondary-btn" onClick={copyAlphaCard} data-magnetic>
-                  <Copy size={17} />
+                <button
+                  type="button"
+                  className="secondary-btn"
+                  onClick={copyAlphaCard}
+                  aria-label="Copy selected signal as a shareable Alpha Card"
+                  data-magnetic
+                >
+                  <Copy size={17} aria-hidden="true" />
                   Copy Card
                 </button>
-                <a className="ghost-btn" href={selectedSignal.proofUrl ?? `${explorerBaseUrl}/address/${signalRegistryAddress}`} target="_blank" rel="noreferrer" data-magnetic>
-                  <ArrowUpRight size={17} />
+                <a
+                  className="ghost-btn"
+                  href={selectedSignal.proofUrl ?? `${explorerBaseUrl}/address/${signalRegistryAddress}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label="Open Mantle Explorer proof for the selected signal"
+                  data-magnetic
+                >
+                  <ArrowUpRight size={17} aria-hidden="true" />
                   Proof
                 </a>
               </div>
@@ -631,11 +693,18 @@ export default function Dashboard() {
                         <strong>{signal.confidence}%</strong>
                         <span className={`status-pill ${signal.status.toLowerCase()}`}>{signal.status}</span>
                       </div>
-                      <button className="inspect-btn" onClick={() => {
-                        setSelectedSignalId(signal.id);
-                        setDossierTab("evidence");
-                      }} data-magnetic>
-                        <ScanLine size={15} />
+                      <button
+                        type="button"
+                        className="inspect-btn"
+                        aria-label={`Inspect ${signal.id} ${signal.target} dossier`}
+                        aria-pressed={selectedSignal.id === signal.id}
+                        onClick={() => {
+                          setSelectedSignalId(signal.id);
+                          setDossierTab("evidence");
+                        }}
+                        data-magnetic
+                      >
+                        <ScanLine size={15} aria-hidden="true" />
                         Inspect
                       </button>
                     </article>
@@ -701,22 +770,52 @@ export default function Dashboard() {
 
               <section className="panel dossier-panel" data-reveal>
                 <div className="dossier-tabs" role="tablist" aria-label="Selected signal dossier">
-                  <button className={dossierTab === "evidence" ? "active" : ""} onClick={() => setDossierTab("evidence")} data-magnetic>
-                    <DatabaseZap size={15} />
+                  <button
+                    type="button"
+                    role="tab"
+                    id="dossier-tab-evidence"
+                    aria-selected={dossierTab === "evidence"}
+                    aria-controls="dossier-panel-evidence"
+                    tabIndex={dossierTab === "evidence" ? 0 : -1}
+                    className={dossierTab === "evidence" ? "active" : ""}
+                    onClick={() => setDossierTab("evidence")}
+                    data-magnetic
+                  >
+                    <DatabaseZap size={15} aria-hidden="true" />
                     Evidence
                   </button>
-                  <button className={dossierTab === "payload" ? "active" : ""} onClick={() => setDossierTab("payload")} data-magnetic>
-                    <FileCode2 size={15} />
+                  <button
+                    type="button"
+                    role="tab"
+                    id="dossier-tab-payload"
+                    aria-selected={dossierTab === "payload"}
+                    aria-controls="dossier-panel-payload"
+                    tabIndex={dossierTab === "payload" ? 0 : -1}
+                    className={dossierTab === "payload" ? "active" : ""}
+                    onClick={() => setDossierTab("payload")}
+                    data-magnetic
+                  >
+                    <FileCode2 size={15} aria-hidden="true" />
                     Payload
                   </button>
-                  <button className={dossierTab === "timeline" ? "active" : ""} onClick={() => setDossierTab("timeline")} data-magnetic>
-                    <Timer size={15} />
+                  <button
+                    type="button"
+                    role="tab"
+                    id="dossier-tab-timeline"
+                    aria-selected={dossierTab === "timeline"}
+                    aria-controls="dossier-panel-timeline"
+                    tabIndex={dossierTab === "timeline" ? 0 : -1}
+                    className={dossierTab === "timeline" ? "active" : ""}
+                    onClick={() => setDossierTab("timeline")}
+                    data-magnetic
+                  >
+                    <Timer size={15} aria-hidden="true" />
                     Timeline
                   </button>
                 </div>
 
                 {dossierTab === "evidence" ? (
-                  <div data-tab-panel>
+                  <div data-tab-panel role="tabpanel" id="dossier-panel-evidence" aria-labelledby="dossier-tab-evidence">
                     <div className="evidence-grid">
                       <EvidenceTile label="Source" value={formatDataSource(selectedSignal.evidence?.dataSource)} />
                       <EvidenceTile label="Observed" value={formatObservedAt(selectedSignal.evidence?.observedAt)} />
@@ -741,7 +840,7 @@ export default function Dashboard() {
                 ) : null}
 
                 {dossierTab === "payload" ? (
-                  <div className="payload-panel" data-tab-panel>
+                  <div className="payload-panel" data-tab-panel role="tabpanel" id="dossier-panel-payload" aria-labelledby="dossier-tab-payload">
                     <div className="payload-grid">
                       <EvidenceTile label="Agent" value={`#${selectedSignal.contract?.payload.agentId ?? "1"}`} />
                       <EvidenceTile label="Confidence" value={`${selectedSignal.contract?.payload.confidenceBps ?? selectedSignal.confidence * 100} bps`} />
@@ -753,7 +852,7 @@ export default function Dashboard() {
                 ) : null}
 
                 {dossierTab === "timeline" ? (
-                  <ol className="timeline" data-tab-panel>
+                  <ol className="timeline" data-tab-panel role="tabpanel" id="dossier-panel-timeline" aria-labelledby="dossier-tab-timeline">
                     {timelineEvents.map((event) => (
                       <li key={`${event.time}-${event.title}`}>
                         <time>{event.time}</time>

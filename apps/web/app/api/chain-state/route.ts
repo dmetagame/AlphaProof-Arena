@@ -1,4 +1,4 @@
-import { createPublicClient, getAddress, http, parseAbi } from "viem";
+import { createPublicClient, getAddress, http, keccak256, parseAbi, stringToHex } from "viem";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -92,44 +92,88 @@ const client = createPublicClient({
   transport: http(mantleSepoliaRpcUrl)
 });
 
+const MNT_NATIVE_TARGET_ID = keccak256(
+  stringToHex("mantle:0x0000000000000000000000000000000000000000:MNT")
+);
+
+const KIND_LABELS: Record<number, string> = {
+  0: "WhaleFlow",
+  1: "LiquidityShift",
+  2: "Volatility",
+  3: "Sentiment",
+  4: "Yield"
+};
+
+function deriveLiveMetadata(signal: {
+  kind: number;
+  targetId: string;
+  resolved: boolean;
+  correct: boolean;
+}) {
+  const knownTarget = signal.targetId.toLowerCase() === MNT_NATIVE_TARGET_ID.toLowerCase();
+  const targetSymbol = knownTarget ? "MNT" : shortenHash(signal.targetId);
+  const kindLabel = KIND_LABELS[signal.kind] ?? "Signal";
+  const thesisCore = knownTarget
+    ? `${kindLabel} agent committed a live Mantle Sepolia signal on MNT activity.`
+    : `${kindLabel} agent committed a live signal targeting ${shortenHash(signal.targetId)}.`;
+  const thesis = signal.resolved
+    ? `${thesisCore} Resolver scored it ${signal.correct ? "correct" : "incorrect"} on Mantle.`
+    : `${thesisCore} Resolver opens after expiry — full payload on the commit transaction.`;
+
+  return {
+    targetSymbol,
+    thesis,
+    evidence: {
+      dataSource: "Mantle Sepolia RPC (live round)"
+    }
+  };
+}
+
 export async function GET() {
   try {
     const agentId = 1n;
-    const nextAgentId = await readWithRetry(() => (
-      client.readContract({ address: agentRegistryAddress, abi: agentAbi, functionName: "nextAgentId" })
-    ));
-    const nextSignalId = await readWithRetry(() => (
-      client.readContract({ address: signalRegistryAddress, abi: signalAbi, functionName: "nextSignalId" })
-    ));
-    const agent = await readWithRetry(() => (
-      client.readContract({ address: agentRegistryAddress, abi: agentAbi, functionName: "getAgent", args: [agentId] })
-    ));
-    const score = await readWithRetry(() => (
-      client.readContract({ address: scoreRegistryAddress, abi: scoreAbi, functionName: "getScore", args: [agentId] })
-    ));
-    const signalIds = await readWithRetry(() => (
-      client.readContract({ address: signalRegistryAddress, abi: signalAbi, functionName: "signalsOfAgent", args: [agentId] })
-    ));
+    const [nextAgentId, nextSignalId, agent, score, signalIds] = await Promise.all([
+      readWithRetry(() => (
+        client.readContract({ address: agentRegistryAddress, abi: agentAbi, functionName: "nextAgentId" })
+      )),
+      readWithRetry(() => (
+        client.readContract({ address: signalRegistryAddress, abi: signalAbi, functionName: "nextSignalId" })
+      )),
+      readWithRetry(() => (
+        client.readContract({ address: agentRegistryAddress, abi: agentAbi, functionName: "getAgent", args: [agentId] })
+      )),
+      readWithRetry(() => (
+        client.readContract({ address: scoreRegistryAddress, abi: scoreAbi, functionName: "getScore", args: [agentId] })
+      )),
+      readWithRetry(() => (
+        client.readContract({ address: signalRegistryAddress, abi: signalAbi, functionName: "signalsOfAgent", args: [agentId] })
+      ))
+    ]);
 
-    const signals = [];
-    for (const signalId of signalIds) {
-      const signal = await readWithRetry(() => (
-        client.readContract({
-          address: signalRegistryAddress,
-          abi: signalAbi,
-          functionName: "getSignal",
-          args: [signalId]
-        })
-      ));
+    const rawSignals = await Promise.all(
+      signalIds.map((signalId) => (
+        readWithRetry(() => (
+          client.readContract({
+            address: signalRegistryAddress,
+            abi: signalAbi,
+            functionName: "getSignal",
+            args: [signalId]
+          })
+        )).then((signal) => ({ signalId, signal }))
+      ))
+    );
+
+    const signals = rawSignals.map(({ signalId, signal }) => {
       const id = signalId.toString();
       const metadata = seededSignalMetadata[id];
+      const liveFallback = metadata ? null : deriveLiveMetadata(signal);
 
-      signals.push({
+      return {
         id,
         agentId: signal.agentId,
         kind: signal.kind,
         targetId: signal.targetId,
-        targetSymbol: metadata?.targetSymbol || shortenHash(signal.targetId),
+        targetSymbol: metadata?.targetSymbol || liveFallback?.targetSymbol || shortenHash(signal.targetId),
         direction: metadata?.direction || "neutral",
         confidenceBps: signal.confidenceBps,
         createdAt: signal.createdAt,
@@ -139,12 +183,12 @@ export async function GET() {
         resolved: signal.resolved,
         correct: signal.correct,
         pnlBps: signal.pnlBps,
-        thesis: metadata?.thesis,
+        thesis: metadata?.thesis ?? liveFallback?.thesis,
         commitTx: metadata?.commitTx,
         resolveTx: metadata?.resolveTx,
-        evidence: metadata?.evidence
-      });
-    }
+        evidence: metadata?.evidence ?? liveFallback?.evidence
+      };
+    });
 
     return Response.json(stringifyBigInts({
       chainId,

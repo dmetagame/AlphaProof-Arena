@@ -105,19 +105,20 @@ export function buildMantleNativeTransferObservation(
 
   const mntUsdPrice = options.mntUsdPrice ?? DEFAULT_MNT_USD_PRICE;
   const wallets = new Set<string>();
+  const whaleAddresses = new Set<string>();
   let totalMnt = 0;
-  let whaleWallets = 0;
 
   for (const transaction of sourceTransactions) {
-    wallets.add(transaction.from.toLowerCase());
+    const from = transaction.from.toLowerCase();
+    wallets.add(from);
     if (transaction.to) wallets.add(transaction.to.toLowerCase());
 
     const valueMnt = Number(formatEther(transaction.value));
     const gasBudgetMnt = Number(formatEther(transaction.gas * transaction.gasPrice));
-    const activityMnt = valueMnt + gasBudgetMnt;
-    totalMnt += activityMnt;
-    if (valueMnt >= WHALE_TRANSFER_MNT || gasBudgetMnt >= 0.1) whaleWallets += 1;
+    totalMnt += valueMnt + gasBudgetMnt;
+    if (valueMnt >= WHALE_TRANSFER_MNT || gasBudgetMnt >= 0.1) whaleAddresses.add(from);
   }
+  const whaleWallets = whaleAddresses.size;
 
   const latestBlock = sortedBlocks[sortedBlocks.length - 1];
   const firstBlock = sortedBlocks[0];

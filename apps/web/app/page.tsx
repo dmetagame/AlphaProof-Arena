@@ -25,6 +25,7 @@ import { BlockStreamTicker } from "@/components/block-stream-ticker";
 import { ProofPulse } from "@/components/proof-pulse";
 import { useMotion } from "@/components/motion-provider";
 import { useArenaMotion } from "@/lib/animation/use-arena-motion";
+import { useCardMotion } from "@/lib/animation/use-card-motion";
 import { useCardTilt } from "@/lib/animation/use-card-tilt";
 import { useHashScramble } from "@/lib/animation/use-hash-scramble";
 import { useMagneticButton } from "@/lib/animation/use-magnetic-button";
@@ -348,10 +349,13 @@ export default function Dashboard() {
       ? "Reading live chain state"
       : "Live RPC unavailable — click to retry";
 
+  const cardMotionKey = `${displaySignals.length}:${scanStatus}:${chainState?.score.resolvedSignals ?? "0"}:${selectedSignalId ?? ""}`;
+
   useRevealAnimation(motionScopeRef, { refreshKey: displaySignals.length });
   useParallax(motionScopeRef, displaySignals.length);
   useMagneticButton(motionScopeRef);
   useCardTilt(motionScopeRef);
+  useCardMotion(motionScopeRef, { refreshKey: cardMotionKey });
   useArenaMotion(motionScopeRef, {
     activeSection,
     dossierTab,
@@ -712,14 +716,20 @@ export default function Dashboard() {
                     <article
                       className={`signal-card ${signal.status.toLowerCase()} ${selectedSignal.id === signal.id ? "selected" : ""}`}
                       key={signal.id}
-                      style={{ "--delay": `${index * 70}ms` } as React.CSSProperties}
                       data-tilt-card
+                      data-batch-card
                     >
                       <div className="signal-index">{String(index + 1).padStart(2, "0")}</div>
                       <div className="signal-body">
                         <div className="signal-title">
                           <strong>{signal.id} - {signal.target}</strong>
-                          <span className={`direction ${signal.direction.toLowerCase()}`}>{signal.direction}</span>
+                          <span
+                            className={`direction ${signal.direction.toLowerCase()}`}
+                            key={`direction-${signal.direction}`}
+                            data-badge
+                          >
+                            {signal.direction}
+                          </span>
                         </div>
                         <p>{signal.thesis ?? `${signal.agent} generated a ${signal.direction.toLowerCase()} signal.`}</p>
                         <div className="signal-foot">
@@ -735,7 +745,13 @@ export default function Dashboard() {
                           <i style={{ width: `${signal.confidence}%` }} />
                         </div>
                         <strong>{signal.confidence}%</strong>
-                        <span className={`status-pill ${signal.status.toLowerCase()}`}>{signal.status}</span>
+                        <span
+                          className={`status-pill ${signal.status.toLowerCase()}`}
+                          key={`status-${signal.status}`}
+                          data-badge
+                        >
+                          {signal.status}
+                        </span>
                       </div>
                       <button
                         type="button"
@@ -788,7 +804,7 @@ export default function Dashboard() {
             </div>
 
             <aside className="dossier">
-              <section className="alpha-pass" data-reveal data-tilt-card data-parallax-scene>
+              <section className="alpha-pass" data-tilt-card data-parallax-scene>
                 <span className="alpha-edge-light" aria-hidden="true" />
                 <div className="alpha-topline">
                   <span>Alpha card</span>

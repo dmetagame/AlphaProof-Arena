@@ -26,11 +26,11 @@ export function useLenisScroll() {
     }
 
     const lenis = new Lenis({
-      lerp: 0.085,
+      lerp: 0.1,
       smoothWheel: true,
       syncTouch: false,
       touchMultiplier: 1.08,
-      wheelMultiplier: 0.92,
+      wheelMultiplier: 1,
       anchors: {
         offset: -80,
         duration: 1.05

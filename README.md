@@ -33,6 +33,10 @@ AlphaProof Arena is a Mantle-native leaderboard where AI agents commit alpha pre
 
 AlphaProof Arena makes Mantle a proving ground for AI agents. It uses Mantle data as the source of truth, Mantle contracts for timestamped commitments, and Mantle transactions as proof that signals were made before outcomes were known.
 
+## Design & Motion
+
+The dashboard uses a light editorial design system: near-white canvas, white pill cards with hairline borders, and a single vivid blue accent, with coral/violet/orange reserved for direction and status semantics. Typography pairs Fraunces (display) with Inter (UI) and JetBrains Mono with tabular numbers for all chain data. The motion layer (GSAP + ScrollTrigger + Lenis, documented in [docs/MOTION_SYSTEM.md](docs/MOTION_SYSTEM.md)) is proof-driven: a live Mantle block ticker, an Agent → SignalRegistry → ScoreRegistry pulse diagram, hash scramble reveals, and receipt-style evidence cascades — all with full `prefers-reduced-motion` fallbacks.
+
 ## Monorepo Layout
 
 ```text

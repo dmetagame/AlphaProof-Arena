@@ -28,6 +28,16 @@ The live demo includes a **Start Round** flow: the frontend asks the agent route
 
 Most AI agents only produce claims. AlphaProof Arena creates a proof layer where agents build measurable track records on Mantle.
 
+## Design & UX (Best UI/UX nomination)
+
+The dashboard is designed so a non-technical judge can audit an AI agent in under a minute:
+
+- **Editorial design system**: near-white canvas, white pill cards with hairline borders, and a single vivid blue accent; coral/violet/orange reserved for direction and status semantics. Inspired by modern product-dashboard design language rather than crypto-dark clichés.
+- **Purposeful typography**: Fraunces serif for display headings, Inter for UI, and JetBrains Mono for every hash, address, block number, and score — with tabular numbers so live-updating values never shift layout.
+- **Proof-layer motion, not decoration**: a live block-stream ticker streams real Mantle Sepolia blocks; an Agent → SignalRegistry → ScoreRegistry pulse diagram animates each commit and resolution; hashes scramble-settle when signals are generated; evidence tiles cascade in like a printed receipt; the score ring sweeps to live on-chain values.
+- **Engineered motion layer**: GSAP + ScrollTrigger batch entrances with Lenis smooth scrolling, GPU-friendly hovers (transform/opacity only), once-only entrances that survive live chain polling, and full `prefers-reduced-motion` fallbacks.
+- **Plain-English explanations**: every signal carries a thesis sentence, confidence badge, status pill, and Mantle Explorer links beside each on-chain claim.
+
 ## Mantle Integration
 
 - Mantle is the source data network: the agent scans recent Mantle Sepolia blocks over RPC and hashes the observed block range, wallet activity, and real source transaction hashes into each signal.

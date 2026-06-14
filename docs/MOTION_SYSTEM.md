@@ -1,33 +1,39 @@
 # AlphaProof Arena Motion System
 
-AlphaProof Arena uses GSAP and Lenis for its premium Web3 arena motion layer. CSS keyframe animations are intentionally avoided; runtime animation is centralized in reusable client hooks.
+AlphaProof Arena uses GSAP (with `@gsap/react`), ScrollTrigger, and Lenis for its motion layer, plus a small set of CSS keyframes for lightweight ambient loops (block ticker marquee, receipt-tile cascade, score-ring sweep). Runtime animation is centralized in reusable client hooks built on `useGSAP`, so every tween and trigger is cleaned up automatically on unmount, dependency change, and fast refresh.
 
-## Created Files
+## Architecture
 
-- `apps/web/components/motion-provider.tsx`: site-wide client motion provider, Lenis bootstrapping, page fade-in, scroll-aware navbar state, and smooth-scroll context.
-- `apps/web/components/animated-number.tsx`: reusable numeric display component backed by GSAP count-up animation.
-- `apps/web/lib/animation/gsap.ts`: centralized GSAP plugin registration for `ScrollTrigger` and `ScrollToPlugin`.
-- `apps/web/lib/animation/use-lenis-scroll.ts`: Lenis smooth-scroll hook integrated with GSAP ticker and `ScrollTrigger.update()`.
-- `apps/web/lib/animation/use-reveal-animation.ts`: section/card reveal hook using `ScrollTrigger`.
-- `apps/web/lib/animation/use-parallax.ts`: scroll-linked parallax hook for ambient and hero depth layers.
-- `apps/web/lib/animation/use-magnetic-button.ts`: magnetic hover and ripple hook for CTAs and proof actions.
-- `apps/web/lib/animation/use-counter-animation.ts`: direct-DOM numeric count-up hook for reputation, stats, and confidence values.
-- `apps/web/lib/animation/use-card-tilt.ts`: pointer tilt hook for arena cards.
-- `apps/web/lib/animation/use-arena-motion.ts`: page-specific orchestration for hero entrance, particles, scan spinner, XP burst, achievement toast, progress bars, tab transitions, active section state, and scroll-linked story motion.
-- `apps/web/lib/animation/use-reduced-motion.ts`: shared `prefers-reduced-motion` detection.
-- `apps/web/lib/animation/use-isomorphic-layout-effect.ts`: SSR-safe layout effect helper.
+- **Provider**: `apps/web/components/motion-provider.tsx` bootstraps Lenis (lerp 0.1, smooth wheel), page fade-in, scroll-aware navbar state, and a smooth-scroll context.
+- **GSAP core**: `apps/web/lib/animation/gsap.ts` registers `ScrollTrigger` and `ScrollToPlugin` once.
+- **Lenis ↔ ScrollTrigger sync**: `use-lenis-scroll.ts` wires `lenis.on("scroll", ScrollTrigger.update)`, drives Lenis from the GSAP ticker (`lenis.raf(time * 1000)`), and sets `lagSmoothing(0)` so smooth scrolling and scroll triggers share one clock.
 
-## Modified Files
+## Hooks
 
-- `apps/web/app/layout.tsx`: wraps the app with `MotionProvider`.
-- `apps/web/app/page.tsx`: adds motion refs, active-section navigation, animated counters, hero word masks, magnetic controls, tilt cards, parallax layers, XP/achievement UI, and tab-panel targets.
-- `apps/web/app/globals.css`: removes CSS keyframe animation usage and adds static styling for GSAP-controlled layers, particles, ripple surfaces, hero masks, reduced-motion fallbacks, and responsive motion-safe layout.
-- `apps/web/package.json`: adds `gsap` and `lenis`.
-- `package-lock.json`: locks GSAP and Lenis dependency versions.
+- `use-arena-motion.ts`: page orchestration — hero entrance timeline (y 32 → 0, 0.9s, power3.out, 0.08 stagger), reputation-row slide-ins (x -16, 0.05 stagger), alpha-card clip-path reveal with staggered inner rows, scan spinner, XP burst and achievement toast, dossier tab transitions, and active-section tracking.
+- `use-card-motion.ts`: signal-card entrances via `ScrollTrigger.batch` on `[data-batch-card]` (y 40 → 0, scale 0.97 → 1, 0.7s, 0.1 stagger, once). Cards are marked `data-animated` after entering so chain-polling re-renders never replay entrances. Desktop-only hover (gated by `gsap.matchMedia` on fine pointers) lifts cards y -4 / scale 1.015 with a pseudo-element opacity glow — no box-shadow tweening. Badge pills (`[data-badge]`) pop in with `back.out(1.6)` on appearance and on status changes (keyed remounts).
+- `use-counter-animation.ts`: GSAP count-up for stats; on live value changes it also pulses the new value (opacity 0.35 → 1, y 4 → 0, 0.35s). Tabular numbers in the type system prevent layout shift.
+- `use-hash-scramble.ts`: hex strings scramble through random characters and settle progressively (~600 ms cubic ease) whenever the target hash changes.
+- `use-reveal-animation.ts`: generic section/group reveals (groups: y 24, 0.06 stagger, once).
+- `use-card-tilt.ts`: pointer tilt on `[data-tilt-card]` (fine pointers only).
+- `use-magnetic-button.ts`: magnetic hover and click ripple for CTAs.
+- `use-parallax.ts`: scroll-linked parallax for depth layers.
+- `use-reduced-motion.ts` / `use-isomorphic-layout-effect.ts`: shared guards.
 
-## Accessibility And Performance
+## Proof-layer components
 
-- Reduced-motion users skip Lenis and GSAP-driven movement, with content rendered statically.
-- Animations use refs, `gsap.context()`, `quickTo()`, and direct DOM updates to avoid React re-render loops.
-- Lenis is driven by the GSAP ticker, so `ScrollTrigger` and smooth scrolling share one animation clock.
-- CSS keyframes and transitions were removed so motion behavior remains centralized and reversible.
+- `components/block-stream-ticker.tsx`: marquee of the eight most recent Mantle Sepolia blocks (live RPC via `/api/chain-ticker`, 12s refresh), pause-on-hover, each entry linking to Mantle Explorer.
+- `components/proof-pulse.tsx`: SVG Agent → SignalRegistry → ScoreRegistry diagram; a pulse travels the first edge when a round starts and the second when chain state shows a new resolution.
+- `components/animated-number.tsx`: numeric display backed by the counter hook.
+
+## CSS-side motion (globals.css)
+
+- Ticker marquee, receipt-tile cascade for evidence tiles, score-ring sweep (registered `@property --score` angle transition), chip pulse, scan spinner fallback, and hover glow layers (pseudo-element opacity only).
+- All CSS animations have explicit `prefers-reduced-motion: reduce` overrides.
+
+## Accessibility and performance
+
+- Reduced-motion users skip Lenis and all GSAP movement via `gsap.matchMedia`; content renders statically and instantly.
+- Hover and tilt effects only attach on `(hover: hover) and (pointer: fine)`.
+- Animations use refs, `useGSAP` contexts with `revertOnUpdate`, `quickTo()`, and direct DOM updates to avoid React re-render loops; entrances are `once: true` and guarded with `data-animated` markers so live polling cannot replay them.
+- Only `transform`, `opacity`, and (for the alpha card reveal) `clip-path` are animated — no layout-triggering properties, no box-shadow tweens.

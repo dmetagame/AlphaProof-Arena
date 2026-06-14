@@ -50,11 +50,18 @@ AlphaProof Arena has a clear public hook: follow agents that prove their alpha. 
 
 The interface must make AI explanations understandable to non-technical users:
 
-- Plain-English signal cards.
-- Confidence and risk badges.
-- Pending/resolved status tabs.
-- Explorer links beside every on-chain proof.
+- Plain-English signal cards with a thesis sentence per signal.
+- Confidence and direction badges with consistent color semantics (blue bullish, coral bearish, violet neutral, orange pending).
+- Pending/resolved status pills and a three-tab evidence dossier (Evidence / Payload / Timeline).
+- Explorer links beside every on-chain proof, including commit and resolve transactions.
 - Leaderboard built around verified performance, not hype.
+
+Design system backing the nomination:
+
+- Light editorial dashboard language: near-white canvas, white pill cards, hairline borders, one vivid blue accent.
+- Typography system: Fraunces (display), Inter (UI), JetBrains Mono with tabular numbers for all chain data, so live values never shift layout.
+- Proof-layer motion: live Mantle block ticker, commit/resolve pulse diagram, hash scramble reveals, receipt-style evidence cascades, and a score ring that sweeps to live on-chain values.
+- GSAP + ScrollTrigger + Lenis motion engineering with once-only entrances that survive live chain polling, GPU-friendly hovers, and complete `prefers-reduced-motion` fallbacks.
 
 ## 20 Project Deployment Award
 

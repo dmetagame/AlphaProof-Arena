@@ -13,7 +13,6 @@ import {
   Layers3,
   Play,
   Radio,
-  Radar,
   ScanLine,
   ShieldCheck,
   Timer,
@@ -22,6 +21,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatedNumber } from "@/components/animated-number";
 import { BlockStreamTicker } from "@/components/block-stream-ticker";
+import { Logo, LogoSpinner } from "@/components/logo";
 import { ProofPulse } from "@/components/proof-pulse";
 import { useMotion } from "@/components/motion-provider";
 import { useArenaMotion } from "@/lib/animation/use-arena-motion";
@@ -459,13 +459,10 @@ export default function Dashboard() {
 
       <header className="topbar">
         <div className="brand">
-          <div className="mark">
-            <Radar size={18} />
-          </div>
-          <div>
-            <h1>AlphaProof Arena</h1>
-            <span>Proof-of-alpha for AI agents on Mantle</span>
-          </div>
+          <h1 className="brand-title">
+            <Logo variant="lockup" size={32} href="/" />
+          </h1>
+          <span className="brand-tagline">Proof-of-alpha for AI agents on Mantle</span>
         </div>
         <div className="network-cluster">
           <button
@@ -475,7 +472,7 @@ export default function Dashboard() {
             aria-label="Reload chain state"
             disabled={chainStatus === "loading"}
           >
-            <Radio size={15} />
+            {chainStatus === "loading" ? <LogoSpinner size={15} /> : <Radio size={15} />}
             <strong>Mantle Sepolia</strong>
             <span>{networkDetail}</span>
           </button>
@@ -601,7 +598,7 @@ export default function Dashboard() {
                   data-magnetic
                 >
                   {scanStatus === "running"
-                    ? <ScanLine size={17} className="scan-spinner" aria-hidden="true" />
+                    ? <LogoSpinner size={17} />
                     : <Play size={17} aria-hidden="true" />}
                   {scanStatus === "running" ? "Starting" : "Start Round"}
                 </button>
@@ -735,6 +732,7 @@ export default function Dashboard() {
                         <div className="signal-foot">
                           <span>{signal.agent}</span>
                           <a href={signal.proofUrl ?? `${explorerBaseUrl}/address/${signalRegistryAddress}`} target="_blank" rel="noreferrer">
+                            <Logo variant="mark" size={20} />
                             {signal.proof}
                             <ExternalLink size={12} />
                           </a>
@@ -891,8 +889,9 @@ export default function Dashboard() {
                     <div className="evidence-links" aria-label="Evidence transaction links">
                       {proofLinks.map((link) => (
                         <a href={link.href} target="_blank" rel="noreferrer" key={`${link.label}-${link.href}`} data-magnetic>
-                          <ExternalLink size={13} />
+                          <Logo variant="mark" size={20} />
                           {link.label}
+                          <ExternalLink size={13} />
                         </a>
                       ))}
                     </div>

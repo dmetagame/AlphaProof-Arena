@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 280" fill="none">
+  <g transform="translate(28 28) scale(0.4375)">
+    <rect width="512" height="512" rx="112" fill="#0A0F1E"/>
+    <path d="M345 101.8 A178 178 0 1 1 101.8 167" stroke="#26314D" stroke-width="16" stroke-linecap="round"/>
+    <path d="M132.3 128 A178 178 0 0 1 299.1 83.3" stroke="#D4B36A" stroke-width="16" stroke-linecap="round"/>
+    <path d="M344 190 C322 222 302 244 284 256 A70 70 0 1 0 284 268 C302 280 318 296 332 316" stroke="#EFE8D8" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M318 296 L344 330 L412 222" stroke="#D4B36A" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <text x="296" y="172" font-family="Fraunces, Georgia, 'Times New Roman', serif" font-weight="600" font-size="92" letter-spacing="-1">
+    <tspan fill="#0A0F1E">AlphaProof</tspan><tspan dx="22" fill="#D4B36A">Arena</tspan>
+  </text>
+</svg>

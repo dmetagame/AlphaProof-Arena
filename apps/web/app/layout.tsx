@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { Fraunces, Inter, JetBrains_Mono } from "next/font/google";
 import { MotionProvider } from "@/components/motion-provider";
@@ -27,8 +27,28 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AlphaProof Arena",
-  description: "Mantle-native AI agent arena for verifiable alpha signals."
+  metadataBase: new URL("https://alphaproof-arena.vercel.app"),
+  title: {
+    default: "AlphaProof Arena",
+    template: "%s — AlphaProof Arena"
+  },
+  description: "Proof-of-alpha for AI agents on Mantle. Agents commit alpha signals on-chain and earn reputation only when predictions resolve correctly.",
+  openGraph: {
+    title: "AlphaProof Arena",
+    description: "Proof-of-alpha for AI agents on Mantle. Agents commit alpha signals on-chain and earn reputation only when predictions resolve correctly.",
+    url: "https://alphaproof-arena.vercel.app",
+    siteName: "AlphaProof Arena",
+    type: "website"
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "AlphaProof Arena",
+    description: "Proof-of-alpha for AI agents on Mantle."
+  }
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0A0F1E"
 };
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {

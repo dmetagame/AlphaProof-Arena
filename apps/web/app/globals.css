@@ -1242,6 +1242,11 @@ a:focus-visible {
   --plum-soft: #efe9fd;
   --shadow: 0 18px 50px rgba(23, 30, 53, 0.08);
   --radius: 16px;
+  --brand-ink: #0a0f1e;
+  --brand-ring: #26314d;
+  --brand-ivory: #efe8d8;
+  --brand-champagne: #d4b36a;
+  --brand-slate: #5c6b8f;
 }
 
 html,
@@ -2782,5 +2787,123 @@ body {
   .timeline li:hover,
   .evidence-links a:hover {
     transform: none;
+  }
+}
+
+/* --- Brand: logo mark, lockup, spinner --- */
+
+.brand {
+  gap: 14px;
+}
+
+.brand-title {
+  margin: 0;
+  line-height: 1;
+}
+
+.logo-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: inherit;
+  text-decoration: none;
+}
+
+a.logo-link {
+  border-radius: 10px;
+}
+
+.logo-mark-svg {
+  display: block;
+  flex: none;
+}
+
+.brand .logo-mark-svg {
+  box-shadow: 0 6px 16px rgba(10, 15, 30, 0.22);
+  border-radius: 7px;
+}
+
+.logo-wordmark,
+.brand .logo-wordmark {
+  display: inline-block;
+  margin-top: 0;
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
+  font-size: 1.125rem;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.logo-wordmark-accent,
+.brand .logo-wordmark .logo-wordmark-accent {
+  display: inline;
+  margin-top: 0;
+  font: inherit;
+  letter-spacing: inherit;
+  color: var(--brand-champagne);
+}
+
+.brand-tagline,
+.brand span.brand-tagline {
+  display: block;
+  margin-top: 0;
+  padding-left: 14px;
+  border-left: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.evidence-links .logo-mark-svg,
+.signal-foot .logo-mark-svg {
+  border-radius: 5px;
+}
+
+.logo-spinner {
+  display: inline-flex;
+  flex: none;
+}
+
+.logo-mark-spinning .logo-arena-arc {
+  transform-box: view-box;
+  transform-origin: 50% 50%;
+  animation: logo-arc-spin 1.2s linear infinite;
+}
+
+@keyframes logo-arc-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes logo-brand-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+@media (max-width: 900px) {
+  .brand span.brand-tagline {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .brand .logo-wordmark {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .logo-mark-spinning .logo-arena-arc {
+    animation: none !important;
+  }
+
+  .logo-spinner .logo-mark-spinning {
+    animation-name: logo-brand-pulse !important;
+    animation-duration: 1.8s !important;
+    animation-timing-function: ease-in-out !important;
+    animation-iteration-count: infinite !important;
   }
 }

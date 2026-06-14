@@ -11,6 +11,7 @@ import {
   FileCode2,
   GitCommitHorizontal,
   Layers3,
+  LayoutDashboard,
   Play,
   Radio,
   ScanLine,
@@ -193,6 +194,7 @@ type ChainStateResponse = {
 };
 
 type DossierTab = "evidence" | "payload" | "timeline";
+type DashboardView = "overview" | "command" | "agents" | "signals" | "score";
 
 const initialContract: ContractPayload = {
   functionName: "commitSignal",
@@ -271,6 +273,7 @@ export default function Dashboard() {
   const [scanStatus, setScanStatus] = useState<"idle" | "running" | "ready" | "error">("idle");
   const [selectedSignalId, setSelectedSignalId] = useState<string | null>(null);
   const [dossierTab, setDossierTab] = useState<DossierTab>("evidence");
+  const [view, setView] = useState<DashboardView>("overview");
   const [activeSection, setActiveSection] = useState("command");
   const [notice, setNotice] = useState("Whale Flow Agent is ready to start a live Mantle proof round.");
   const [commitPulseId, setCommitPulseId] = useState(0);
@@ -294,6 +297,12 @@ export default function Dashboard() {
   useEffect(() => {
     void reloadChainState();
   }, [reloadChainState]);
+
+  useEffect(() => {
+    const param = new URLSearchParams(window.location.search).get("view");
+    const allowed: DashboardView[] = ["overview", "command", "agents", "signals", "score"];
+    if (param && (allowed as string[]).includes(param)) setView(param as DashboardView);
+  }, []);
 
   const chainSignals = useMemo(
     () => chainState?.signals.map(toDashboardSignal).reverse() ?? initialSignals,
@@ -349,9 +358,9 @@ export default function Dashboard() {
       ? "Reading live chain state"
       : "Live RPC unavailable — click to retry";
 
-  const cardMotionKey = `${displaySignals.length}:${scanStatus}:${chainState?.score.resolvedSignals ?? "0"}:${selectedSignalId ?? ""}`;
+  const cardMotionKey = `${view}:${displaySignals.length}:${scanStatus}:${chainState?.score.resolvedSignals ?? "0"}:${selectedSignalId ?? ""}`;
 
-  useRevealAnimation(motionScopeRef, { refreshKey: displaySignals.length });
+  useRevealAnimation(motionScopeRef, { refreshKey: `${view}:${displaySignals.length}` });
   useParallax(motionScopeRef, displaySignals.length);
   useMagneticButton(motionScopeRef);
   useCardTilt(motionScopeRef);
@@ -393,6 +402,17 @@ export default function Dashboard() {
   function scrollToSection(section: string) {
     setActiveSection(section);
     scrollTo(`#${section}`, { offset: -92, duration: 1 });
+  }
+
+  function openView(next: DashboardView) {
+    setView(next);
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0 });
+      const url = new URL(window.location.href);
+      if (next === "overview") url.searchParams.delete("view");
+      else url.searchParams.set("view", next);
+      window.history.replaceState(null, "", url);
+    }
   }
 
   async function addSignal() {
@@ -448,6 +468,563 @@ export default function Dashboard() {
     }
   }
 
+  const resolvedSignalsList = displaySignals.filter((signal) => signal.status === "Resolved");
+  const correctSignals = Number(chainState?.score.correctSignals ?? 0);
+  const directionCounts = displaySignals.reduce(
+    (acc, signal) => {
+      const direction = signal.direction.toLowerCase();
+      if (direction === "bullish") acc.bullish += 1;
+      else if (direction === "bearish") acc.bearish += 1;
+      else acc.neutral += 1;
+      return acc;
+    },
+    { bullish: 0, bearish: 0, neutral: 0 }
+  );
+  const maxDirection = Math.max(1, directionCounts.bullish, directionCounts.bearish, directionCounts.neutral);
+  const directionRows = [
+    { label: "Bullish", value: directionCounts.bullish, tone: "bullish" },
+    { label: "Bearish", value: directionCounts.bearish, tone: "bearish" },
+    { label: "Neutral", value: directionCounts.neutral, tone: "neutral" }
+  ];
+  const contractList = [
+    { label: "AgentRegistry", address: chainState?.contracts.agentRegistry ?? "0x3517b74800E6A731656D8cc809d77f730da4d1dA" },
+    { label: "ScoreRegistry", address: chainState?.contracts.scoreRegistry ?? "0x746A932D764d37f10c2f474D170734A05a20e87a" },
+    { label: "SignalRegistry", address: chainState?.contracts.signalRegistry ?? signalRegistryAddress }
+  ];
+  const pipelineStages = [
+    { key: "scan", icon: <ScanLine size={16} aria-hidden="true" />, title: "Scan", detail: "Read recent Mantle Sepolia blocks over RPC.", active: scanStatus === "running" },
+    { key: "commit", icon: <GitCommitHorizontal size={16} aria-hidden="true" />, title: "Commit", detail: "Hash the signal and write it to SignalRegistry.", active: scanStatus === "ready" },
+    { key: "resolve", icon: <Timer size={16} aria-hidden="true" />, title: "Resolve", detail: "Score the outcome window once expiry passes.", active: false },
+    { key: "rank", icon: <Trophy size={16} aria-hidden="true" />, title: "Rank", detail: "Update reputation on ScoreRegistry.", active: false }
+  ];
+
+  function renderDossierPanel() {
+    return (
+      <section className="panel dossier-panel" data-reveal>
+        <div className="dossier-tabs" role="tablist" aria-label="Selected signal dossier">
+          <button
+            type="button"
+            role="tab"
+            id="dossier-tab-evidence"
+            aria-selected={dossierTab === "evidence"}
+            aria-controls="dossier-panel-evidence"
+            tabIndex={dossierTab === "evidence" ? 0 : -1}
+            className={dossierTab === "evidence" ? "active" : ""}
+            onClick={() => setDossierTab("evidence")}
+            data-magnetic
+          >
+            <DatabaseZap size={15} aria-hidden="true" />
+            Evidence
+          </button>
+          <button
+            type="button"
+            role="tab"
+            id="dossier-tab-payload"
+            aria-selected={dossierTab === "payload"}
+            aria-controls="dossier-panel-payload"
+            tabIndex={dossierTab === "payload" ? 0 : -1}
+            className={dossierTab === "payload" ? "active" : ""}
+            onClick={() => setDossierTab("payload")}
+            data-magnetic
+          >
+            <FileCode2 size={15} aria-hidden="true" />
+            Payload
+          </button>
+          <button
+            type="button"
+            role="tab"
+            id="dossier-tab-timeline"
+            aria-selected={dossierTab === "timeline"}
+            aria-controls="dossier-panel-timeline"
+            tabIndex={dossierTab === "timeline" ? 0 : -1}
+            className={dossierTab === "timeline" ? "active" : ""}
+            onClick={() => setDossierTab("timeline")}
+            data-magnetic
+          >
+            <Timer size={15} aria-hidden="true" />
+            Timeline
+          </button>
+        </div>
+
+        {dossierTab === "evidence" ? (
+          <div data-tab-panel role="tabpanel" id="dossier-panel-evidence" aria-labelledby="dossier-tab-evidence">
+            <div className="evidence-grid receipt-reveal" key={`evidence-${selectedSignal.id}`}>
+              <EvidenceTile label="Source" value={formatDataSource(selectedSignal.evidence?.dataSource)} />
+              <EvidenceTile label="Observed" value={formatObservedAt(selectedSignal.evidence?.observedAt)} />
+              <EvidenceTile label="Round" value={selectedSignal.evidence?.roundStage ?? selectedSignal.status} />
+              <EvidenceTile label="Mode" value={selectedSignal.evidence?.commitMode ?? "On-chain proof"} />
+              <EvidenceTile label="Source blocks" value={selectedSignal.evidence?.sourceBlockRange ?? "Hashed fixture"} />
+              <EvidenceTile label="Commit block" value={selectedSignal.evidence?.commitBlock ?? selectedSignal.evidence?.outcomeBlockRange ?? "Resolver pending"} />
+              <EvidenceTile label="Source activity" value={formatActivity(selectedSignal.evidence?.sourceTxCount, selectedSignal.evidence?.uniqueWallets)} />
+              <EvidenceTile label="Outcome activity" value={formatActivity(selectedSignal.evidence?.outcomeTxCount, selectedSignal.evidence?.outcomeWallets)} />
+              <EvidenceTile label="Whale wallets" value={String(selectedSignal.evidence?.whaleWallets ?? 0)} />
+              <EvidenceTile label="Score impact" value={selectedSignal.evidence?.scoreDelta ?? selectedSignal.result} />
+            </div>
+            <div className="evidence-links" aria-label="Evidence transaction links">
+              {proofLinks.map((link) => (
+                <a href={link.href} target="_blank" rel="noreferrer" key={`${link.label}-${link.href}`} data-magnetic>
+                  <Logo variant="mark" size={20} />
+                  {link.label}
+                  <ExternalLink size={13} />
+                </a>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        {dossierTab === "payload" ? (
+          <div className="payload-panel" data-tab-panel role="tabpanel" id="dossier-panel-payload" aria-labelledby="dossier-tab-payload">
+            <div className="payload-grid">
+              <EvidenceTile label="Agent" value={`#${selectedSignal.contract?.payload.agentId ?? "1"}`} />
+              <EvidenceTile label="Confidence" value={`${selectedSignal.contract?.payload.confidenceBps ?? selectedSignal.confidence * 100} bps`} />
+              <EvidenceTile label="Source hash" value={scrambledSourceHash} />
+              <EvidenceTile label="Explanation" value={scrambledExplanationHash} />
+            </div>
+            <code>{JSON.stringify(selectedSignal.contract?.args ?? initialContract.args, null, 2)}</code>
+          </div>
+        ) : null}
+
+        {dossierTab === "timeline" ? (
+          <ol className="timeline" data-tab-panel role="tabpanel" id="dossier-panel-timeline" aria-labelledby="dossier-tab-timeline">
+            {timelineEvents.map((event) => (
+              <li key={`${event.time}-${event.title}`}>
+                <time>{event.time}</time>
+                <div>
+                  <strong>{event.title}</strong>
+                  <span>{event.detail}</span>
+                </div>
+              </li>
+            ))}
+          </ol>
+        ) : null}
+      </section>
+    );
+  }
+
+  function renderSignalCard(signal: Signal, index: number) {
+    return (
+      <article
+        className={`signal-card ${signal.status.toLowerCase()} ${selectedSignal.id === signal.id ? "selected" : ""}`}
+        key={signal.id}
+        data-tilt-card
+        data-batch-card
+      >
+        <div className="signal-index">{String(index + 1).padStart(2, "0")}</div>
+        <div className="signal-body">
+          <div className="signal-title">
+            <strong>{signal.id} - {signal.target}</strong>
+            <span className={`direction ${signal.direction.toLowerCase()}`} key={`direction-${signal.direction}`} data-badge>
+              {signal.direction}
+            </span>
+          </div>
+          <p>{signal.thesis ?? `${signal.agent} generated a ${signal.direction.toLowerCase()} signal.`}</p>
+          <div className="signal-foot">
+            <span>{signal.agent}</span>
+            <a href={signal.proofUrl ?? `${explorerBaseUrl}/address/${signalRegistryAddress}`} target="_blank" rel="noreferrer">
+              <Logo variant="mark" size={20} />
+              {signal.proof}
+              <ExternalLink size={12} />
+            </a>
+          </div>
+        </div>
+        <div className="signal-meter">
+          <div className="confidence" aria-label={`${signal.confidence}% confidence`}>
+            <i style={{ width: `${signal.confidence}%` }} />
+          </div>
+          <strong>{signal.confidence}%</strong>
+          <span className={`status-pill ${signal.status.toLowerCase()}`} key={`status-${signal.status}`} data-badge>
+            {signal.status}
+          </span>
+        </div>
+        <button
+          type="button"
+          className="inspect-btn"
+          aria-label={`Inspect ${signal.id} ${signal.target} dossier`}
+          aria-pressed={selectedSignal.id === signal.id}
+          onClick={() => {
+            setSelectedSignalId(signal.id);
+            setDossierTab("evidence");
+          }}
+          data-magnetic
+        >
+          <ScanLine size={15} aria-hidden="true" />
+          Inspect
+        </button>
+      </article>
+    );
+  }
+
+  function renderAgentRow(agent: Agent) {
+    return (
+      <article className="agent-row" key={agent.name} data-tilt-card data-batch-card>
+        <div className="rank">#{agent.rank}</div>
+        <div className="agent-main">
+          <strong>{agent.name}</strong>
+          <span>{agent.focus}</span>
+        </div>
+        <div className="spark" aria-hidden="true">
+          {agent.spark.map((height, index) => (
+            <i key={index} style={{ height: `${height}%`, animationDelay: `${index * 75}ms` }} />
+          ))}
+        </div>
+        <div className="score">
+          <AnimatedNumber value={agent.reputation} />
+          <span>{agent.accuracy}</span>
+        </div>
+      </article>
+    );
+  }
+
+  function renderFocused() {
+    const meta = {
+      command: { kicker: "Operations", title: "Command", blurb: "Run live Mantle proof rounds and watch the commit pipeline." },
+      agents: { kicker: "Reputation", title: "Agents", blurb: "Accuracy and reputation read straight from ScoreRegistry." },
+      signals: { kicker: "Signal deck", title: "Signals", blurb: "Every alpha signal, committed on-chain before its outcome." },
+      score: { kicker: "Scoring", title: "Score", blurb: "How reputation is earned and proven on Mantle." }
+    }[view as Exclude<DashboardView, "overview">];
+
+    return (
+      <div className="focus-view" key={view} data-reveal-group>
+        <header className="view-head" data-reveal>
+          <button type="button" className="view-back" onClick={() => openView("overview")} data-magnetic>
+            <LayoutDashboard size={14} aria-hidden="true" />
+            Dashboard
+            <span aria-hidden="true">/</span>
+            {meta.title}
+          </button>
+          <span className="panel-kicker">{meta.kicker}</span>
+          <h2>{meta.title}</h2>
+          <p>{meta.blurb}</p>
+        </header>
+
+        {view === "command" ? (
+          <>
+            <div className="kpi-grid" data-reveal-group>
+              <article className="kpi-card" data-batch-card>
+                <Radio size={16} aria-hidden="true" />
+                <span>Network</span>
+                <strong>{chainStatus === "ready" ? "Live" : chainStatus === "loading" ? "Reading" : "Offline"}</strong>
+                <small>Mantle Sepolia</small>
+              </article>
+              <article className="kpi-card" data-batch-card>
+                <Layers3 size={16} aria-hidden="true" />
+                <span>Committed</span>
+                <AnimatedNumber value={committed} />
+                <small>on-chain</small>
+              </article>
+              <article className="kpi-card" data-batch-card>
+                <Timer size={16} aria-hidden="true" />
+                <span>Pending</span>
+                <AnimatedNumber value={pending} />
+                <small>awaiting resolve</small>
+              </article>
+              <article className="kpi-card" data-batch-card>
+                <GitCommitHorizontal size={16} aria-hidden="true" />
+                <span>Next signal</span>
+                <strong>#{chainState?.nextSignalId ?? "—"}</strong>
+                <small>SignalRegistry</small>
+              </article>
+            </div>
+
+            <div className="focus-grid focus-grid-wide">
+              <section className="panel" data-reveal>
+                <div className="panel-head">
+                  <div>
+                    <span className="panel-kicker">Round pipeline</span>
+                    <h3>Scan → Commit → Resolve → Rank</h3>
+                  </div>
+                  <span className={`notice ${scanStatus}`}><span />{scanStatus === "running" ? "Round in progress" : "Idle"}</span>
+                </div>
+                <div className="pipeline-grid">
+                  {pipelineStages.map((stage) => (
+                    <article key={stage.key} className={`pipeline-card ${stage.active ? "active" : ""}`}>
+                      <div className="pipeline-icon">{stage.icon}</div>
+                      <strong>{stage.title}</strong>
+                      <p>{stage.detail}</p>
+                    </article>
+                  ))}
+                </div>
+                <div className="action-row">
+                  <button type="button" className="primary-btn" onClick={addSignal} disabled={scanStatus === "running"} data-magnetic>
+                    {scanStatus === "running" ? <LogoSpinner size={17} /> : <Play size={17} aria-hidden="true" />}
+                    {scanStatus === "running" ? "Starting" : "Start Round"}
+                  </button>
+                  <button type="button" className="secondary-btn" onClick={copyAlphaCard} data-magnetic>
+                    <Copy size={17} aria-hidden="true" />
+                    Copy Card
+                  </button>
+                </div>
+                <div className={`notice ${scanStatus}`}><span />{notice}</div>
+                <div className="hero-pulse">
+                  <ProofPulse commitPulseId={commitPulseId} resolvePulseId={resolvePulseId} activeNode={activePulseNode} />
+                </div>
+                <BlockStreamTicker />
+              </section>
+
+              <aside className="panel" data-reveal>
+                <div className="panel-head">
+                  <div>
+                    <span className="panel-kicker">Deployment</span>
+                    <h3>Verified contracts</h3>
+                  </div>
+                </div>
+                <div className="contract-list">
+                  {contractList.map((contract) => (
+                    <a
+                      key={contract.label}
+                      className="contract-row"
+                      href={`${explorerBaseUrl}/address/${contract.address}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      data-magnetic
+                    >
+                      <Logo variant="mark" size={22} />
+                      <div>
+                        <strong>{contract.label}</strong>
+                        <span>{shortAddress(contract.address)}</span>
+                      </div>
+                      <ExternalLink size={14} aria-hidden="true" />
+                    </a>
+                  ))}
+                </div>
+              </aside>
+            </div>
+          </>
+        ) : null}
+
+        {view === "agents" ? (
+          <>
+            <div className="kpi-grid" data-reveal-group>
+              <article className="kpi-card" data-batch-card>
+                <ShieldCheck size={16} aria-hidden="true" />
+                <span>Agents</span>
+                <AnimatedNumber value={displayAgents.length} />
+                <small>in the arena</small>
+              </article>
+              <article className="kpi-card" data-batch-card>
+                <Trophy size={16} aria-hidden="true" />
+                <span>Top reputation</span>
+                <AnimatedNumber value={topReputation} />
+                <small>ScoreRegistry</small>
+              </article>
+              <article className="kpi-card" data-batch-card>
+                <BarChart3 size={16} aria-hidden="true" />
+                <span>Accuracy</span>
+                <strong>{accuracy}</strong>
+                <small>resolved calls</small>
+              </article>
+              <article className="kpi-card" data-batch-card>
+                <BadgeCheck size={16} aria-hidden="true" />
+                <span>Resolved</span>
+                <AnimatedNumber value={resolved} />
+                <small>{correctSignals} correct</small>
+              </article>
+            </div>
+
+            <div className="focus-grid focus-grid-wide">
+              <section className="panel" data-reveal>
+                <div className="panel-head">
+                  <div>
+                    <span className="panel-kicker">Agent arena</span>
+                    <h3>Reputation table</h3>
+                  </div>
+                  <span className="status-pill resolved">Resolved proof</span>
+                </div>
+                <div className="agent-grid">
+                  {displayAgents.map((agent) => renderAgentRow(agent))}
+                </div>
+              </section>
+
+              <aside className="panel" data-reveal>
+                <div className="panel-head">
+                  <div>
+                    <span className="panel-kicker">Top agent</span>
+                    <h3>{displayAgents[0].name}</h3>
+                  </div>
+                </div>
+                <p className="focus-lede">{displayAgents[0].focus}</p>
+                <div className="kpi-grid kpi-grid-2">
+                  <article className="kpi-card">
+                    <span>Reputation</span>
+                    <AnimatedNumber value={displayAgents[0].reputation} />
+                  </article>
+                  <article className="kpi-card">
+                    <span>Accuracy</span>
+                    <strong>{displayAgents[0].accuracy}</strong>
+                  </article>
+                  <article className="kpi-card">
+                    <span>Resolved</span>
+                    <AnimatedNumber value={resolved} />
+                  </article>
+                  <article className="kpi-card">
+                    <span>Correct</span>
+                    <AnimatedNumber value={correctSignals} />
+                  </article>
+                </div>
+                <div className="contract-list">
+                  <div className="contract-row static">
+                    <Logo variant="mark" size={22} />
+                    <div>
+                      <strong>Owner</strong>
+                      <span>{chainState ? shortAddress(chainState.agent.owner) : "Reading owner"}</span>
+                    </div>
+                  </div>
+                </div>
+              </aside>
+            </div>
+          </>
+        ) : null}
+
+        {view === "signals" ? (
+          <>
+            <div className="kpi-grid" data-reveal-group>
+              <article className="kpi-card" data-batch-card>
+                <Layers3 size={16} aria-hidden="true" />
+                <span>Committed</span>
+                <AnimatedNumber value={committed} />
+                <small>on-chain</small>
+              </article>
+              <article className="kpi-card" data-batch-card>
+                <BadgeCheck size={16} aria-hidden="true" />
+                <span>Resolved</span>
+                <AnimatedNumber value={resolved} />
+                <small>scored</small>
+              </article>
+              <article className="kpi-card" data-batch-card>
+                <Timer size={16} aria-hidden="true" />
+                <span>Pending</span>
+                <AnimatedNumber value={pending} />
+                <small>awaiting outcome</small>
+              </article>
+              <article className="kpi-card" data-batch-card>
+                <BarChart3 size={16} aria-hidden="true" />
+                <span>Avg confidence</span>
+                <AnimatedNumber value={avgConfidence} suffix="%" />
+                <small>{displaySignals.length} signals</small>
+              </article>
+            </div>
+
+            <section className="panel" data-reveal>
+              <div className="panel-head">
+                <div>
+                  <span className="panel-kicker">Distribution</span>
+                  <h3>Direction mix</h3>
+                </div>
+              </div>
+              <div className="dist-grid">
+                {directionRows.map((row) => (
+                  <div className={`dist-row ${row.tone}`} key={row.label}>
+                    <span className="dist-label">{row.label}</span>
+                    <div className="dist-track"><i style={{ width: `${(row.value / maxDirection) * 100}%` }} /></div>
+                    <strong>{row.value}</strong>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <div className="focus-grid signals-focus">
+              <section className="panel signal-studio" data-reveal>
+                <div className="panel-head">
+                  <div>
+                    <span className="panel-kicker">Signal deck</span>
+                    <h3>Live proof queue</h3>
+                  </div>
+                  <span className="live-badge"><Radio size={13} />Live Mantle</span>
+                </div>
+                <div className="signal-list">
+                  {displaySignals.map((signal, index) => renderSignalCard(signal, index))}
+                </div>
+              </section>
+              <aside className="dossier">{renderDossierPanel()}</aside>
+            </div>
+          </>
+        ) : null}
+
+        {view === "score" ? (
+          <>
+            <div className="focus-grid focus-grid-wide">
+              <section className="panel score-focus-panel" data-reveal>
+                <div className="score-ring score-ring-lg" style={{ "--score": `${Math.min(Math.max(topReputation, 0), 100) * 3.6}deg` } as React.CSSProperties}>
+                  <div>
+                    <span>Reputation</span>
+                    <AnimatedNumber value={topReputation} />
+                  </div>
+                </div>
+                <div className="kpi-grid kpi-grid-2">
+                  <article className="kpi-card">
+                    <span>Resolved</span>
+                    <AnimatedNumber value={resolved} />
+                  </article>
+                  <article className="kpi-card">
+                    <span>Correct</span>
+                    <AnimatedNumber value={correctSignals} />
+                  </article>
+                  <article className="kpi-card">
+                    <span>Accuracy</span>
+                    <strong>{accuracy}</strong>
+                  </article>
+                  <article className="kpi-card">
+                    <span>Activity bps</span>
+                    <AnimatedNumber value={cumulativeBps} prefix={cumulativeBps >= 0 ? "+" : ""} />
+                  </article>
+                </div>
+              </section>
+
+              <aside className="panel" data-reveal>
+                <div className="panel-head">
+                  <div>
+                    <span className="panel-kicker">Method</span>
+                    <h3>How scoring works</h3>
+                  </div>
+                </div>
+                <ol className="score-method">
+                  <li>
+                    <GitCommitHorizontal size={15} aria-hidden="true" />
+                    <div><strong>Commit before the outcome</strong><span>Each signal is hashed and written to Mantle before its expiry window closes.</span></div>
+                  </li>
+                  <li>
+                    <BadgeCheck size={15} aria-hidden="true" />
+                    <div><strong>Correct calls earn reputation</strong><span>The resolver compares the prediction to on-chain reality after expiry.</span></div>
+                  </li>
+                  <li>
+                    <BarChart3 size={15} aria-hidden="true" />
+                    <div><strong>Activity & PnL accrue in bps</strong><span>Cumulative basis points track measurable edge across resolved rounds.</span></div>
+                  </li>
+                </ol>
+              </aside>
+            </div>
+
+            <section className="panel" data-reveal>
+              <div className="panel-head">
+                <div>
+                  <span className="panel-kicker">Ledger</span>
+                  <h3>Per-signal score impact</h3>
+                </div>
+                <span className="status-pill resolved">{resolved} resolved</span>
+              </div>
+              <div className="impact-list">
+                {resolvedSignalsList.length > 0 ? (
+                  resolvedSignalsList.map((signal) => (
+                    <div className="impact-row" key={signal.id} data-batch-card>
+                      <div className="impact-main">
+                        <strong>{signal.id}</strong>
+                        <span>{signal.target} {signal.direction}</span>
+                      </div>
+                      <span className={`direction ${signal.direction.toLowerCase()}`}>{signal.direction}</span>
+                      <strong className="impact-delta">{signal.evidence?.scoreDelta ?? signal.result}</strong>
+                    </div>
+                  ))
+                ) : (
+                  <p className="empty-note">No resolved signals yet — start a round from Command to build a track record.</p>
+                )}
+              </div>
+            </section>
+          </>
+        ) : null}
+      </div>
+    );
+  }
+
   return (
     <main className="app-shell" ref={motionScopeRef}>
       <div className="ambient-stage" aria-hidden="true" data-parallax-scene>
@@ -485,52 +1062,64 @@ export default function Dashboard() {
 
       <div className="workspace">
         <aside className="side-rail">
-          <nav className="rail-section" aria-label="Arena sections">
-            <span className="rail-label">Arena</span>
+          <nav className="rail-section" aria-label="Dashboard">
+            <span className="rail-label">Analytics</span>
             <button
               type="button"
-              className={`rail-item ${activeSection === "command" ? "active" : ""}`}
-              aria-current={activeSection === "command" ? "page" : undefined}
-              onClick={() => scrollToSection("command")}
+              className={`rail-item rail-parent ${view === "overview" ? "active" : ""}`}
+              aria-current={view === "overview" ? "page" : undefined}
+              onClick={() => openView("overview")}
               data-magnetic
             >
-              <Activity size={16} aria-hidden="true" />
-              <span>Command</span>
-              <strong aria-label={`${displaySignals.length} signals`}>{displaySignals.length}</strong>
+              <LayoutDashboard size={16} aria-hidden="true" />
+              <span>Dashboard</span>
             </button>
-            <button
-              type="button"
-              className={`rail-item ${activeSection === "agents" ? "active" : ""}`}
-              aria-current={activeSection === "agents" ? "page" : undefined}
-              onClick={() => scrollToSection("agents")}
-              data-magnetic
-            >
-              <ShieldCheck size={16} aria-hidden="true" />
-              <span>Agents</span>
-              <strong aria-label={`${displayAgents.length} agents`}>{displayAgents.length}</strong>
-            </button>
-            <button
-              type="button"
-              className={`rail-item ${activeSection === "signals" ? "active" : ""}`}
-              aria-current={activeSection === "signals" ? "page" : undefined}
-              onClick={() => scrollToSection("signals")}
-              data-magnetic
-            >
-              <GitCommitHorizontal size={16} aria-hidden="true" />
-              <span>Signals</span>
-              <strong aria-label={`${resolved} resolved`}>{resolved}</strong>
-            </button>
-            <button
-              type="button"
-              className={`rail-item ${activeSection === "score" ? "active" : ""}`}
-              aria-current={activeSection === "score" ? "page" : undefined}
-              onClick={() => scrollToSection("score")}
-              data-magnetic
-            >
-              <Trophy size={16} aria-hidden="true" />
-              <span>Score</span>
-              <strong aria-label={`Reputation ${topReputation}`}>{topReputation}</strong>
-            </button>
+            <div className="rail-subnav">
+              <button
+                type="button"
+                className={`rail-item rail-child ${view === "command" ? "active" : ""}`}
+                aria-current={view === "command" ? "page" : undefined}
+                onClick={() => openView("command")}
+                data-magnetic
+              >
+                <Activity size={15} aria-hidden="true" />
+                <span>Command</span>
+                <strong aria-label={`${pending} pending`}>{pending}</strong>
+              </button>
+              <button
+                type="button"
+                className={`rail-item rail-child ${view === "agents" ? "active" : ""}`}
+                aria-current={view === "agents" ? "page" : undefined}
+                onClick={() => openView("agents")}
+                data-magnetic
+              >
+                <ShieldCheck size={15} aria-hidden="true" />
+                <span>Agents</span>
+                <strong aria-label={`${displayAgents.length} agents`}>{displayAgents.length}</strong>
+              </button>
+              <button
+                type="button"
+                className={`rail-item rail-child ${view === "signals" ? "active" : ""}`}
+                aria-current={view === "signals" ? "page" : undefined}
+                onClick={() => openView("signals")}
+                data-magnetic
+              >
+                <GitCommitHorizontal size={15} aria-hidden="true" />
+                <span>Signals</span>
+                <strong aria-label={`${displaySignals.length} signals`}>{displaySignals.length}</strong>
+              </button>
+              <button
+                type="button"
+                className={`rail-item rail-child ${view === "score" ? "active" : ""}`}
+                aria-current={view === "score" ? "page" : undefined}
+                onClick={() => openView("score")}
+                data-magnetic
+              >
+                <Trophy size={15} aria-hidden="true" />
+                <span>Score</span>
+                <strong aria-label={`Reputation ${topReputation}`}>{topReputation}</strong>
+              </button>
+            </div>
           </nav>
 
           <div className="rail-card">
@@ -543,6 +1132,8 @@ export default function Dashboard() {
         </aside>
 
         <section className="main">
+          {view === "overview" ? (
+          <>
           <section className="command-center" id="command" data-section="command">
             <div className="agent-hero" data-tilt-card data-parallax-scene>
               <div className="hero-motion-layer" aria-hidden="true">
@@ -826,106 +1417,13 @@ export default function Dashboard() {
                 </div>
               </section>
 
-              <section className="panel dossier-panel" data-reveal>
-                <div className="dossier-tabs" role="tablist" aria-label="Selected signal dossier">
-                  <button
-                    type="button"
-                    role="tab"
-                    id="dossier-tab-evidence"
-                    aria-selected={dossierTab === "evidence"}
-                    aria-controls="dossier-panel-evidence"
-                    tabIndex={dossierTab === "evidence" ? 0 : -1}
-                    className={dossierTab === "evidence" ? "active" : ""}
-                    onClick={() => setDossierTab("evidence")}
-                    data-magnetic
-                  >
-                    <DatabaseZap size={15} aria-hidden="true" />
-                    Evidence
-                  </button>
-                  <button
-                    type="button"
-                    role="tab"
-                    id="dossier-tab-payload"
-                    aria-selected={dossierTab === "payload"}
-                    aria-controls="dossier-panel-payload"
-                    tabIndex={dossierTab === "payload" ? 0 : -1}
-                    className={dossierTab === "payload" ? "active" : ""}
-                    onClick={() => setDossierTab("payload")}
-                    data-magnetic
-                  >
-                    <FileCode2 size={15} aria-hidden="true" />
-                    Payload
-                  </button>
-                  <button
-                    type="button"
-                    role="tab"
-                    id="dossier-tab-timeline"
-                    aria-selected={dossierTab === "timeline"}
-                    aria-controls="dossier-panel-timeline"
-                    tabIndex={dossierTab === "timeline" ? 0 : -1}
-                    className={dossierTab === "timeline" ? "active" : ""}
-                    onClick={() => setDossierTab("timeline")}
-                    data-magnetic
-                  >
-                    <Timer size={15} aria-hidden="true" />
-                    Timeline
-                  </button>
-                </div>
-
-                {dossierTab === "evidence" ? (
-                  <div data-tab-panel role="tabpanel" id="dossier-panel-evidence" aria-labelledby="dossier-tab-evidence">
-                    <div className="evidence-grid receipt-reveal" key={`evidence-${selectedSignal.id}`}>
-                      <EvidenceTile label="Source" value={formatDataSource(selectedSignal.evidence?.dataSource)} />
-                      <EvidenceTile label="Observed" value={formatObservedAt(selectedSignal.evidence?.observedAt)} />
-                      <EvidenceTile label="Round" value={selectedSignal.evidence?.roundStage ?? selectedSignal.status} />
-                      <EvidenceTile label="Mode" value={selectedSignal.evidence?.commitMode ?? "On-chain proof"} />
-                      <EvidenceTile label="Source blocks" value={selectedSignal.evidence?.sourceBlockRange ?? "Hashed fixture"} />
-                      <EvidenceTile label="Commit block" value={selectedSignal.evidence?.commitBlock ?? selectedSignal.evidence?.outcomeBlockRange ?? "Resolver pending"} />
-                      <EvidenceTile label="Source activity" value={formatActivity(selectedSignal.evidence?.sourceTxCount, selectedSignal.evidence?.uniqueWallets)} />
-                      <EvidenceTile label="Outcome activity" value={formatActivity(selectedSignal.evidence?.outcomeTxCount, selectedSignal.evidence?.outcomeWallets)} />
-                      <EvidenceTile label="Whale wallets" value={String(selectedSignal.evidence?.whaleWallets ?? 0)} />
-                      <EvidenceTile label="Score impact" value={selectedSignal.evidence?.scoreDelta ?? selectedSignal.result} />
-                    </div>
-                    <div className="evidence-links" aria-label="Evidence transaction links">
-                      {proofLinks.map((link) => (
-                        <a href={link.href} target="_blank" rel="noreferrer" key={`${link.label}-${link.href}`} data-magnetic>
-                          <Logo variant="mark" size={20} />
-                          {link.label}
-                          <ExternalLink size={13} />
-                        </a>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-
-                {dossierTab === "payload" ? (
-                  <div className="payload-panel" data-tab-panel role="tabpanel" id="dossier-panel-payload" aria-labelledby="dossier-tab-payload">
-                    <div className="payload-grid">
-                      <EvidenceTile label="Agent" value={`#${selectedSignal.contract?.payload.agentId ?? "1"}`} />
-                      <EvidenceTile label="Confidence" value={`${selectedSignal.contract?.payload.confidenceBps ?? selectedSignal.confidence * 100} bps`} />
-                      <EvidenceTile label="Source hash" value={scrambledSourceHash} />
-                      <EvidenceTile label="Explanation" value={scrambledExplanationHash} />
-                    </div>
-                    <code>{JSON.stringify(selectedSignal.contract?.args ?? initialContract.args, null, 2)}</code>
-                  </div>
-                ) : null}
-
-                {dossierTab === "timeline" ? (
-                  <ol className="timeline" data-tab-panel role="tabpanel" id="dossier-panel-timeline" aria-labelledby="dossier-tab-timeline">
-                    {timelineEvents.map((event) => (
-                      <li key={`${event.time}-${event.title}`}>
-                        <time>{event.time}</time>
-                        <div>
-                          <strong>{event.title}</strong>
-                          <span>{event.detail}</span>
-                        </div>
-                      </li>
-                    ))}
-                  </ol>
-                ) : null}
-              </section>
+              {renderDossierPanel()}
             </aside>
           </div>
+          </>
+          ) : (
+            renderFocused()
+          )}
         </section>
       </div>
     </main>
